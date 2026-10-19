@@ -9,9 +9,10 @@ import {
   type GameConfig
 } from '../game/config';
 import { DEFAULT_RULES, type Rules } from '../game/rules';
-import { AILMENT_NAME, ELEMENT_NAME, type ItemDef } from '../game/data';
+import { AILMENT_NAME, ELEMENT_NAME, FUSIONS, type ItemDef } from '../game/data';
+import { ACHIEVEMENTS } from '../game/achievements';
 import { MAPS } from '../game/maps';
-import type { Ailment, Element, Shape, SkillDef, SpeciesDef, Stats } from '../game/types';
+import type { Ailment, Element, EvolutionDef, Shape, SkillDef, SpeciesDef, Stats } from '../game/types';
 import type { BattleBg, ScriptedBattle } from '../game/story';
 import { renderSaveTab } from './save';
 import {
@@ -96,6 +97,7 @@ const EFFECT_OPTIONS: { value: ItemDef['effect']['type']; label: string }[] = [
   { value: 'warp', label: '傳送回城（warp）' },
   { value: 'teach', label: '傳授技能（teach）' },
   { value: 'equip', label: '裝備（equip）' },
+  { value: 'gem', label: '鑲嵌寶石（gem）' },
   { value: 'none', label: '無效果（none）' }
 ];
 
@@ -387,17 +389,19 @@ function renderDashboard(): HTMLElement {
       stat('道具', Object.keys(config.items).length, `商店 ${config.shops.stock.length} 項`),
       stat('遇敵地圖', `${encounterCount} / ${Object.keys(MAPS).length}`),
       stat('劇情戰鬥', Object.keys(config.battles).length),
+      stat('合成配方', FUSIONS.length, '不含依屬性的育種結果'),
+      stat('成就', ACHIEVEMENTS.length),
       stat('設定狀態', stored ? '已覆寫' : '預設', stored ? new Date(stored.updatedAt).toLocaleString() : '尚未儲存')
     ),
 
     section(
       '快速操作',
       h('div', { class: 'quick-grid' },
-        quickCard('❖', '調整幻獸數值', '基礎能力、成長值、捕獲率、技能表、進化', () => switchTab('species')),
-        quickCard('◆', '道具價格與效果', '售價、商店收購價、回復量、戰鬥效果', () => switchTab('items')),
+        quickCard('❖', '調整幻獸數值', '基礎能力、成長值、捕獲率、技能表、進化分支', () => switchTab('species')),
+        quickCard('◆', '道具價格與效果', '售價、商店收購價、回復量、寶石與裝備效果', () => switchTab('items')),
         quickCard('⌂', '商店上架', '決定商人賣哪些道具、以什麼價格收购', () => switchTab('shop')),
         quickCard('⌖', '野外遇敵', '每張地圖的遇敵率、出現種族、等級與權重', () => switchTab('encounters')),
-        quickCard('☰', '修改角色存檔', '等級、能力、技能、道具、金幣、劇情旗標', () => switchTab('save')),
+        quickCard('☰', '修改角色存檔', '等級、能力、技能、道具、金幣、裝備強化、劇情旗標', () => switchTab('save')),
         quickCard('⚙', '戰鬥公式', '傷害、爆擊、捕獲、經驗、金幣、中毒等係數', () => switchTab('rules'))
       )
     ),
@@ -636,37 +640,58 @@ function renderSpeciesForm(sp: SpeciesDef): HTMLElement {
 
   // 進化
   const evoBox = h('div', { class: 'panel inset' });
+  const evoList: EvolutionDef[] = sp.evolvesTo
+    ? Array.isArray(sp.evolvesTo)
+      ? sp.evolvesTo.slice()
+      : [sp.evolvesTo]
+    : [];
+  const evo = evoList[0];
+  const setEvo = (patch: Partial<EvolutionDef>) => {
+    const base: EvolutionDef =
+      evo ?? { species: Object.keys(config.species).find((id) => id !== sp.id) ?? sp.id, level: 16 };
+    // 保留其他分支設定，只改第一條
+    sp.evolvesTo = [{ ...base, ...patch }, ...evoList.slice(1)];
+    markDirty();
+  };
   evoBox.append(
     h('div', { class: 'row-actions' },
-      checkBox(!!sp.evolvesTo, (value) => {
+      checkBox(!!evo, (value) => {
         sp.evolvesTo = value
-          ? {
-              species: Object.keys(config.species).find((id) => id !== sp.id) ?? sp.id,
-              level: 16
-            }
+          ? [{ species: Object.keys(config.species).find((id) => id !== sp.id) ?? sp.id, level: 16 }]
           : undefined;
         markDirty();
         render();
       }, '可進化')
     )
   );
-  if (sp.evolvesTo) {
+  if (evo) {
+    if (evoList.length > 1) {
+      evoBox.append(h('div', { class: 'hint' }, `（此種族另有 ${evoList.length - 1} 條進化分支，僅在此編輯第一條）`));
+    }
     evoBox.append(
       h('div', { class: 'grid grid-2' },
         field('進化成', selectBox(
           Object.entries(config.species)
             .filter(([id]) => id !== sp.id)
             .map(([id, species]) => ({ value: id, label: `${species.name}（${id}）` })),
-          sp.evolvesTo.species,
+          evo.species,
           (value) => {
-            sp.evolvesTo!.species = value;
-            markDirty();
+            setEvo({ species: value });
           }
         )),
-        field('等級門檻', numberBox(sp.evolvesTo.level, (value) => {
-          sp.evolvesTo!.level = Math.max(1, Math.floor(value));
-          markDirty();
+        field('等級門檻', numberBox(evo.level, (value) => {
+          setEvo({ level: Math.max(1, Math.floor(value)) });
         }, { min: 1, max: 99 }))
+      )
+    );
+    evoBox.append(
+      h('div', { class: 'grid grid-2' },
+        field('最低潛能（0 = 不限）', numberBox(evo.minPotential ?? 0, (value) => {
+          setEvo({ minPotential: Math.max(0, Math.floor(value)) || undefined });
+        }, { min: 0, max: 50 })),
+        field('需要旗標（空 = 不限）', textBox(evo.flag ?? '', (value) => {
+          setEvo({ flag: value.trim() || undefined });
+        }))
       )
     );
   }
@@ -683,7 +708,12 @@ function deleteSpecies(id: string) {
 
   delete config.species[id];
   for (const other of Object.values(config.species)) {
-    if (other.evolvesTo?.species === id) other.evolvesTo = undefined;
+    if (Array.isArray(other.evolvesTo)) {
+      const kept = other.evolvesTo.filter((e) => e.species !== id);
+      other.evolvesTo = kept.length === 0 ? undefined : kept.length === 1 ? kept[0] : kept;
+    } else if (other.evolvesTo?.species === id) {
+      other.evolvesTo = undefined;
+    }
     other.skills = other.skills.filter((entry) => entry.id !== id);
   }
   for (const encounter of Object.values(config.encounters)) {

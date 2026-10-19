@@ -1,8 +1,9 @@
 import { ELEMENT_NAME } from '../game/data';
+import { ACHIEVEMENTS } from '../game/achievements';
 import { MAPS } from '../game/maps';
-import { MAX_PARTY, SAVE_KEY, type GameState } from '../game/state';
+import { MAX_PARTY, SAVE_KEY, SAVE_SLOTS, slotKey, type GameState } from '../game/state';
 import type { GameConfig } from '../game/config';
-import type { SpeciesDef, Stats, Unit } from '../game/types';
+import type { EquipSlot, SpeciesDef, Stats, Unit } from '../game/types';
 import {
   badge,
   button,
@@ -39,11 +40,14 @@ function spriteOf(sp: SpeciesDef): Unit['sprite'] {
   return { shape: sp.shape, c1: sp.c1, c2: sp.c2, size: sp.size, horns: sp.horns, wings: sp.wings };
 }
 
-function readSave(config: GameConfig): GameState | null {
+function readSave(config: GameConfig, slot = 1): GameState | null {
   try {
-    const raw = localStorage.getItem(SAVE_KEY);
+    // 新格式：每個欄位一個 key；舊格式（單一存檔）讀不到時退回
+    const raw = localStorage.getItem(slotKey(slot)) ?? (slot === 1 ? localStorage.getItem(SAVE_KEY) : null);
     if (!raw) return null;
-    return normalizeSave(JSON.parse(raw) as GameState, config);
+    const parsed = normalizeSave(JSON.parse(raw) as GameState, config);
+    if (parsed) parsed.slot = slot;
+    return parsed;
   } catch {
     return null;
   }
@@ -64,10 +68,27 @@ function normalizeSave(parsed: GameState, config: GameConfig): GameState | null 
   parsed.questClaimed = parsed.questClaimed ?? {};
   parsed.questClears = parsed.questClears ?? {};
   parsed.lastTown = parsed.lastTown ?? 'village';
+  // 第四輪新增欄位
+  parsed.slot = Math.max(1, Math.min(SAVE_SLOTS, Number(parsed.slot) || 1));
+  parsed.goldEarned = Number(parsed.goldEarned) || 0;
+  parsed.questsDone = Number(parsed.questsDone) || 0;
+  parsed.bountiesDone = Number(parsed.bountiesDone) || 0;
+  parsed.dailies = Array.isArray(parsed.dailies) ? parsed.dailies : [];
+  parsed.dailyKey = parsed.dailyKey ?? '';
+  parsed.dailyDone = Number(parsed.dailyDone) || 0;
+  parsed.dailyStreak = Number(parsed.dailyStreak) || 0;
+  parsed.dailyLastDoneKey = parsed.dailyLastDoneKey ?? '';
+  parsed.fusions = Number(parsed.fusions) || 0;
+  parsed.upgrades = Number(parsed.upgrades) || 0;
+  parsed.gemsSocketed = Number(parsed.gemsSocketed) || 0;
+  parsed.evolutions = Number(parsed.evolutions) || 0;
+  parsed.achievements = parsed.achievements ?? {};
   for (const unit of [...parsed.party, ...parsed.storage]) {
     unit.buffs = Array.isArray(unit.buffs) ? unit.buffs : [];
     unit.skills = Array.isArray(unit.skills) ? unit.skills : [];
     unit.equip = unit.equip ?? {};
+    unit.potential = Math.max(0, Math.min(50, Number(unit.potential) || 0));
+    unit.generation = Math.max(0, Number(unit.generation) || 0);
     unit.level = Math.max(1, Number(unit.level) || 1);
     unit.exp = Math.max(0, Number(unit.exp) || 0);
     const species = config.species[unit.speciesId];
@@ -87,7 +108,8 @@ function nextUid(save: GameState): number {
 }
 
 export function renderSaveTab(config: GameConfig): HTMLElement {
-  let save = readSave(config);
+  let slot = 1;
+  let save = readSave(config, slot);
   let dirty = false;
   const root = h('div', { class: 'save-tab' });
 
@@ -95,16 +117,19 @@ export function renderSaveTab(config: GameConfig): HTMLElement {
 
   function setDirty(value: boolean) {
     dirty = value;
-    status.textContent = dirty ? '有未儲存的變更' : save ? '已同步' : '沒有存檔';
+    status.textContent = dirty ? '有未儲存的變更' : save ? `已同步（欄位 ${slot}）` : `欄位 ${slot}：沒有存檔`;
     status.className = `badge ${dirty ? 'warn' : save ? 'ok' : 'muted'}`;
   }
 
   function persist() {
     if (!save) return;
     try {
-      localStorage.setItem(SAVE_KEY, JSON.stringify(save));
+      const n = Math.max(1, Math.min(SAVE_SLOTS, Math.floor(save.slot ?? slot) || 1));
+      save.slot = n;
+      save.savedAt = Date.now();
+      localStorage.setItem(slotKey(n), JSON.stringify(save));
       setDirty(false);
-      toast('存檔已寫入 localStorage。請重新整理遊戲分頁以載入變更。');
+      toast(`存檔已寫入欄位 ${n}。請重新整理遊戲分頁以載入變更。`);
     } catch {
       toast('存檔寫入失敗（可能超出瀏覽器容量）', 'error');
     }
@@ -156,6 +181,7 @@ export function renderSaveTab(config: GameConfig): HTMLElement {
     const stock = config.shops.stock.slice(0, 3);
     save = {
       version: 1,
+      slot,
       playerName: hero.name,
       mapId: 'village',
       px: 9,
@@ -165,6 +191,7 @@ export function renderSaveTab(config: GameConfig): HTMLElement {
       storage: [],
       inventory: Object.fromEntries(stock.map((id) => [id, 1])),
       gold: 250,
+      goldEarned: 250,
       flags: {},
       stage: 0,
       steps: 0,
@@ -177,10 +204,22 @@ export function renderSaveTab(config: GameConfig): HTMLElement {
       questProgress: {},
       questClaimed: {},
       questClears: {},
+      questsDone: 0,
       dexRewards: [],
       bounties: [],
       bountyRound: 0,
-      bountySeed: Math.floor(Math.random() * 0x7fffffff)
+      bountySeed: Math.floor(Math.random() * 0x7fffffff),
+      bountiesDone: 0,
+      dailies: [],
+      dailyKey: '',
+      dailyDone: 0,
+      dailyStreak: 0,
+      dailyLastDoneKey: '',
+      fusions: 0,
+      upgrades: 0,
+      gemsSocketed: 0,
+      evolutions: 0,
+      achievements: {}
     };
     save.party.forEach((unit, i) => (unit.uid = i + 1));
     setDirty(true);
@@ -353,6 +392,30 @@ export function renderSaveTab(config: GameConfig): HTMLElement {
           )
         )
       ),
+      h('div', { class: 'grid grid-3' },
+        field('潛能（0~50）', numberBox(unit.potential ?? 0, (value) => {
+          unit.potential = Math.max(0, Math.min(50, Math.floor(value)));
+          setDirty(true);
+        }, { min: 0, max: 50 })),
+        field('合成世代', numberBox(unit.generation ?? 0, (value) => {
+          unit.generation = Math.max(0, Math.floor(value));
+          setDirty(true);
+        }, { min: 0 })),
+        h('div', { class: 'field' },
+          h('span', { class: 'field-label' }, '裝備 / 強化 / 寶石'),
+          h('div', { class: 'muted' },
+            (Object.entries(unit.equip ?? {}) as [EquipSlot, string][])
+              .map(([slot, id]) => {
+                const up = unit.equipUp?.[slot] ?? 0;
+                const gems = (unit.gems?.[slot] ?? []).map((g) => config.items[g]?.name ?? g);
+                return `${slot}: ${config.items[id]?.name ?? id}${up > 0 ? ` +${up}` : ''}${
+                  gems.length ? ` [${gems.join('、')}]` : ''
+                }`;
+              })
+              .join('　') || '未裝備'
+          )
+        )
+      ),
       h('details', { class: 'details' },
         h('summary', null, '能力上限（可直接修改）'),
         h('div', { class: 'grid grid-3' }, ...statInputs)
@@ -375,15 +438,30 @@ export function renderSaveTab(config: GameConfig): HTMLElement {
         h('div', null,
           h('h2', null, '存檔與角色修改'),
           h('p', { class: 'muted' },
-            '直接編輯遊戲在 localStorage 中的存檔（同一瀏覽器／同一網址）。修改後按「儲存存檔」，再重新整理遊戲分頁。')
+            '直接編輯遊戲在 localStorage 中的存檔（同一瀏覽器／同一網址）。遊戲共有 4 個存檔欄位，先用右上角選單選擇欄位；修改後按「儲存存檔」，再重新整理遊戲分頁。')
         ),
         h('div', { class: 'row-actions' },
+          selectBox(
+            Array.from({ length: SAVE_SLOTS }, (_, i) => {
+              const n = i + 1;
+              const exists = !!readSave(config, n);
+              return { value: n, label: `欄位 ${n}${exists ? '' : '（空）'}` };
+            }),
+            slot,
+            (value) => {
+              if (dirty && !confirm('目前有未儲存的變更，確定要切換欄位嗎？')) return;
+              slot = Number(value) || 1;
+              save = readSave(config, slot);
+              dirty = false;
+              build();
+            }
+          ),
           status,
           button('重新讀取', () => {
-            save = readSave(config);
+            save = readSave(config, slot);
             dirty = false;
             build();
-            toast('已重新讀取存檔。', 'info');
+            toast(`已重新讀取欄位 ${slot} 的存檔。`, 'info');
           }, 'ghost'),
           button('儲存存檔', persist, 'primary')
         )
@@ -393,8 +471,8 @@ export function renderSaveTab(config: GameConfig): HTMLElement {
     if (!save) {
       root.append(
         h('div', { class: 'panel empty-panel' },
-          h('h3', null, '找不到存檔'),
-          h('p', { class: 'muted' }, '這個瀏覽器還沒有遊戲存檔。你可以先開遊戲建立存檔，或在這裡直接建立一份新存檔。'),
+          h('h3', null, `欄位 ${slot} 沒有存檔`),
+          h('p', { class: 'muted' }, '這個瀏覽器在這個欄位還沒有遊戲存檔。你可以先開遊戲建立存檔，或在這裡直接建立一份新存檔。'),
           button('建立新存檔', createSave, 'primary')
         )
       );
@@ -420,7 +498,9 @@ export function renderSaveTab(config: GameConfig): HTMLElement {
         h('div', { class: 'stat' }, h('span', null, '金幣'), h('strong', null, `${s.gold} G`)),
         h('div', { class: 'stat' }, h('span', null, '出戰 / 待命'), h('strong', null, `${partyCount} / ${s.storage.length}`)),
         h('div', { class: 'stat' }, h('span', null, '地圖'), h('strong', null, `${MAPS[s.mapId]?.name ?? s.mapId} (${s.px},${s.py})`)),
-        h('div', { class: 'stat' }, h('span', null, '進度'), h('strong', null, `stage ${s.stage}`))
+        h('div', { class: 'stat' }, h('span', null, '進度'), h('strong', null, `stage ${s.stage}`)),
+        h('div', { class: 'stat' }, h('span', null, '成就'), h('strong', null, `${Object.keys(s.achievements ?? {}).length} / ${ACHIEVEMENTS.length}`)),
+        h('div', { class: 'stat' }, h('span', null, '合成 / 強化'), h('strong', null, `${s.fusions ?? 0} / ${s.upgrades ?? 0}`))
       )
     );
 
@@ -564,12 +644,13 @@ export function renderSaveTab(config: GameConfig): HTMLElement {
           }, 'ghost'),
           button('匯入存檔', () => fileInput.click(), 'ghost'),
           button('刪除存檔', () => {
-            if (!confirm('確定刪除瀏覽器中的遊戲存檔？')) return;
-            localStorage.removeItem(SAVE_KEY);
+            if (!confirm(`確定刪除欄位 ${slot} 的遊戲存檔？`)) return;
+            localStorage.removeItem(slotKey(slot));
+            if (slot === 1) localStorage.removeItem(SAVE_KEY);
             save = null;
             dirty = false;
             build();
-            toast('存檔已刪除。', 'info');
+            toast(`欄位 ${slot} 的存檔已刪除。`, 'info');
           }, 'danger')
         )
       )
@@ -583,6 +664,7 @@ export function renderSaveTab(config: GameConfig): HTMLElement {
         try {
           const parsed = normalizeSave(JSON.parse(String(reader.result)) as GameState, config);
           if (!parsed) throw new Error('invalid save');
+          parsed.slot = slot;
           save = parsed;
           setDirty(true);
           build();

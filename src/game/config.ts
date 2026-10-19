@@ -84,7 +84,11 @@ export function normalizeConfig(config: GameConfig): GameConfig {
   // 清掉指向不存在資料的參照，避免遊戲讀到壞資料
   for (const sp of Object.values(config.species)) {
     sp.skills = (sp.skills ?? []).filter((entry) => !!config.skills[entry.id]);
-    if (sp.evolvesTo && !config.species[sp.evolvesTo.species]) sp.evolvesTo = undefined;
+    if (sp.evolvesTo) {
+      const branches = Array.isArray(sp.evolvesTo) ? sp.evolvesTo : [sp.evolvesTo];
+      const kept = branches.filter((e) => !!config.species[e.species]);
+      sp.evolvesTo = kept.length === 0 ? undefined : kept.length === 1 ? kept[0] : kept;
+    }
   }
   for (const item of Object.values(config.items)) {
     if (!item.effect || typeof item.effect !== 'object') item.effect = { type: 'none' };

@@ -804,5 +804,17 @@ export const SHOP_STOCK = [
   'acc_ward',
   'acc_orb',
   'acc_crown',
-  'acc_abyss'
+  'acc_abyss',
+  // 強化素材
+  'stardust_core',
+  'star_core',
+  // 鑲嵌寶石
+  'gem_power',
+  'gem_mana',
+  'gem_vital',
+  'gem_guard',
+  'gem_swift',
+  'gem_pure',
+  'gem_ward',
+  'gem_element'
 ];

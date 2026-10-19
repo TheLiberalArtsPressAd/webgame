@@ -3,7 +3,7 @@ import * as input from '../engine/input';
 import { bar, drawBeast, drawHero, label, panel, shade, wrapText } from '../engine/draw';
 import { createUnit, AILMENT_COLOR, AILMENT_ICON, AILMENT_NAME, ELEMENT_COLOR, ELEMENT_NAME, FIELD_EFFECTS, ITEMS, SKILLS, SPECIES, drainFor, itemName, passiveOfUnit, partyBonus, partyFleeAlways } from '../game/data';
 import { session } from '../game/session';
-import { addItem, addPet, giveExp, itemCount, removeItem, type LevelUpInfo } from '../game/state';
+import { addGold, addItem, addPet, giveExp, grantAchievements, itemCount, removeItem, type LevelUpInfo } from '../game/state';
 import { questOnCapture, questOnWin } from '../game/quests';
 import { audio } from '../engine/audio';
 import {
@@ -1010,9 +1010,10 @@ export class BattleScene implements Scene {
       const where = addPet(session.state, caught);
       target.hp = 0;
       questOnCapture(session.state, target.speciesId);
+      const ach = grantAchievements(session.state);
       this.message = `${target.name} 被封印了！${
         where === 'party' ? '加入了出戰隊伍。' : '已送往待命區。'
-      }`;
+      }${ach.length ? `  🏆 ${ach.map((a) => a.name).join('、')}` : ''}`;
     } else {
       this.float(p.x, p.y - 60, '失敗…', '#a8b6cc', 18);
       audio.play('fail');
@@ -1027,7 +1028,7 @@ export class BattleScene implements Scene {
     const expMult = 1 + partyBonus(this.party, 'expBonus');
     const totalExp = Math.round(this.enemies.reduce((a, e) => a + expReward(e), 0) * expMult);
     const totalGold = Math.round(this.enemies.reduce((a, e) => a + goldReward(e), 0) * goldMult);
-    s.gold += totalGold;
+    addGold(s, totalGold);
 
     const lines: string[] = [`獲得 ${totalExp} 經驗值、${totalGold} G。`];
     const levelUps: LevelUpInfo[] = [];
@@ -1055,6 +1056,9 @@ export class BattleScene implements Scene {
       s,
       this.enemies.map((e) => e.speciesId)
     );
+    for (const a of grantAchievements(s)) {
+      lines.push(`🏆 成就達成：${a.name}！`);
+    }
 
     this.resultLines = lines;
     this.message = '戰鬥勝利！';

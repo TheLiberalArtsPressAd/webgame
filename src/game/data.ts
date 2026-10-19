@@ -1,4 +1,4 @@
-import type { Ailment, Element, EquipSlot, PassiveDef, Shape, SkillDef, SpeciesDef, Stats, Unit } from './types';
+import type { Ailment, Element, EquipSlot, EvolutionDef, GemEffect, PassiveDef, Shape, SkillDef, SpeciesDef, Stats, Unit } from './types';
 import { EQUIP_SLOTS } from './types';
 import { RULES } from './rules';
 
@@ -99,7 +99,16 @@ export const PASSIVES: Record<string, PassiveDef> = {
   celestial: { id: 'celestial', name: '星穹加護', desc: '所有屬性傷害 -15%，戰鬥經驗 +15%。', elementResist: { fire: 0.15, water: 0.15, wind: 0.15, earth: 0.15, none: 0.15 }, expBonus: 0.15 },
   abyssal: { id: 'abyssal', name: '深淵加護', desc: '所有屬性傷害 -20%，金幣 +25%。', elementResist: { fire: 0.2, water: 0.2, wind: 0.2, earth: 0.2, none: 0.2 }, goldBonus: 0.25 },
   sprinter: { id: 'sprinter', name: '疾走', desc: '速度 +12%，逃跑必定成功。', statMult: { spd: 0.12 }, fleeAlways: true },
-  greedy: { id: 'greedy', name: '貪慾', desc: '戰鬥勝利金幣 +25%。', goldBonus: 0.25 }
+  greedy: { id: 'greedy', name: '貪慾', desc: '戰鬥勝利金幣 +25%。', goldBonus: 0.25 },
+  // 隱藏種族 / 進化分支
+  solarmight: { id: 'solarmight', name: '曜日之力', desc: '魔力 +15%，受到火屬性傷害 -25%。', statMult: { mag: 0.15 }, elementResist: { fire: 0.25 } },
+  tidalgrace: { id: 'tidalgrace', name: '潮汐恩澤', desc: 'HP +15%，受到水屬性傷害 -25%，免疫冰凍。', statMult: { hp: 0.15 }, elementResist: { water: 0.25 }, immune: ['freeze'] },
+  skylord: { id: 'skylord', name: '蒼穹之主', desc: '速度 +18%，受到風屬性傷害 -25%，逃跑必定成功。', statMult: { spd: 0.18 }, elementResist: { wind: 0.25 }, fleeAlways: true },
+  earthshaker: { id: 'earthshaker', name: '大地震怒', desc: '攻擊 +15%、防禦 +12%，受到地屬性傷害 -25%。', statMult: { atk: 0.15, def: 0.12 }, elementResist: { earth: 0.25 } },
+  prismweave: { id: 'prismweave', name: '稜彩之軀', desc: '魔力 +10%，所有屬性傷害 -15%。', statMult: { mag: 0.1 }, elementResist: { fire: 0.15, water: 0.15, wind: 0.15, earth: 0.15, none: 0.15 } },
+  chronoweave: { id: 'chronoweave', name: '時序編織', desc: '速度 +20%，戰鬥經驗 +20%。', statMult: { spd: 0.2 }, expBonus: 0.2 },
+  nightveil: { id: 'nightveil', name: '夜幕之影', desc: '造成傷害時吸取 25%，免疫睡眠。', drain: 0.25, immune: ['sleep'] },
+  auroraveil: { id: 'auroraveil', name: '極光帷幕', desc: '所有屬性傷害 -20%，金幣 +20%。', elementResist: { fire: 0.2, water: 0.2, wind: 0.2, earth: 0.2, none: 0.2 }, goldBonus: 0.2 }
 };
 
 /** 未指定 passive 時，依身形推導 */
@@ -170,7 +179,16 @@ const SPECIES_PASSIVE: Record<string, string> = {
   abyssknight: 'unyielding',
   voiddragon: 'voidscale',
   nullbeast: 'unyielding',
-  abysssovereign: 'abyssal'
+  abysssovereign: 'abyssal',
+  // 隱藏種族 / 進化分支
+  sunwyrm: 'solarmight',
+  tidematron: 'tidalgrace',
+  aerielord: 'skylord',
+  geoavatar: 'earthshaker',
+  prismfox: 'prismweave',
+  chronodrake: 'chronoweave',
+  nyxbeast: 'nightveil',
+  aurorawisp: 'auroraveil'
 };
 
 export function passiveOf(sp: SpeciesDef | undefined | null): PassiveDef | null {
@@ -887,6 +905,97 @@ export const SKILLS: Record<string, SkillDef> = {
     power: 58,
     kind: 'attack',
     target: 'allEnemy'
+  },
+  // ── 隱藏種族 / 進化分支技能 ──
+  sunburst: {
+    id: 'sunburst',
+    name: '曜日爆',
+    desc: '凝聚成小太陽擲出，對單體造成極大火屬性傷害。',
+    element: 'fire',
+    mp: 30,
+    power: 68,
+    kind: 'attack',
+    target: 'enemy'
+  },
+  tidalprison: {
+    id: 'tidalprison',
+    name: '潮汐牢',
+    desc: '以巨浪困住所有敵人，並有機會使其麻痺。',
+    element: 'water',
+    mp: 26,
+    power: 46,
+    kind: 'attack',
+    target: 'allEnemy',
+    ailment: 'paralysis',
+    ailmentChance: 0.4,
+    ailmentTurns: 2
+  },
+  skyrend: {
+    id: 'skyrend',
+    name: '裂空斬',
+    desc: '劃開天空的風刃，對單體造成極大風屬性傷害。',
+    element: 'wind',
+    mp: 28,
+    power: 66,
+    kind: 'attack',
+    target: 'enemy'
+  },
+  earthwrath: {
+    id: 'earthwrath',
+    name: '大地怒',
+    desc: '讓大地隆起並崩裂，重創所有敵人。',
+    element: 'earth',
+    mp: 30,
+    power: 54,
+    kind: 'attack',
+    target: 'allEnemy'
+  },
+  prismray: {
+    id: 'prismray',
+    name: '稜彩光線',
+    desc: '折射出七彩光束，對單體造成無屬性傷害並降低其魔力。',
+    element: 'none',
+    mp: 24,
+    power: 54,
+    kind: 'attack',
+    target: 'enemy',
+    stat: 'mag'
+  },
+  timebend: {
+    id: 'timebend',
+    name: '時序逆轉',
+    desc: '大幅提升我方全體速度 60%（3 回合）。',
+    element: 'none',
+    mp: 22,
+    power: 0.6,
+    kind: 'buff',
+    target: 'allAlly',
+    stat: 'spd',
+    turns: 3
+  },
+  nightfall: {
+    id: 'nightfall',
+    name: '夜幕降臨',
+    desc: '讓夜色吞沒所有敵人，並有機會使其睡眠。',
+    element: 'none',
+    mp: 30,
+    power: 44,
+    kind: 'attack',
+    target: 'allEnemy',
+    ailment: 'sleep',
+    ailmentChance: 0.35,
+    ailmentTurns: 2
+  },
+  aurorabless: {
+    id: 'aurorabless',
+    name: '極光祝福',
+    desc: '極光覆蓋全隊，回復我方全體的 HP 並解除異常。',
+    element: 'none',
+    mp: 30,
+    power: 90,
+    kind: 'heal',
+    target: 'allAlly',
+    cure: true
   }
 };
 
@@ -1302,6 +1411,7 @@ export const SPECIES: Record<string, SpeciesDef> = {
     c2: '#ffcf6a',
     horns: true,
     desc: '鱗片之間流著岩漿的亞龍，棲息在焰心地脈的深處。',
+    evolvesTo: [{ species: 'sunwyrm', level: 32, minPotential: 15, desc: '潛能 15 以上' }],
     skills: [
       { level: 1, id: 'flameburst' },
       { level: 1, id: 'bite' },
@@ -1400,6 +1510,7 @@ export const SPECIES: Record<string, SpeciesDef> = {
     c1: '#2f7ab8',
     c2: '#a8e0f0',
     desc: '棲息在冰海深處的古老幻獸，鳴叫聲能傳遍整片海域。',
+    evolvesTo: [{ species: 'tidematron', level: 36, minPotential: 15, desc: '潛能 15 以上' }],
     skills: [
       { level: 1, id: 'tidalwave' },
       { level: 1, id: 'frostbreath' },
@@ -1440,6 +1551,7 @@ export const SPECIES: Record<string, SpeciesDef> = {
     c2: '#ffe066',
     wings: true,
     desc: '展翅時會捲起雷雲，據說牠飛過之處必有暴雨。',
+    evolvesTo: [{ species: 'aerielord', level: 34, minPotential: 15, desc: '潛能 15 以上' }],
     skills: [
       { level: 1, id: 'thunderbolt' },
       { level: 1, id: 'gust' },
@@ -1542,6 +1654,7 @@ export const SPECIES: Record<string, SpeciesDef> = {
     c2: '#5a5a66',
     horns: true,
     desc: '沉睡在古道底下的巨人，據說牠醒來時整座山都會震動。',
+    evolvesTo: [{ species: 'geoavatar', level: 34, minPotential: 15, desc: '潛能 15 以上' }],
     skills: [
       { level: 1, id: 'stoneedge' },
       { level: 1, id: 'quake' },
@@ -1963,6 +2076,185 @@ export const SPECIES: Record<string, SpeciesDef> = {
       { level: 1, id: 'healall' },
       { level: 1, id: 'deepfreeze' }
     ]
+  },
+
+  // ─────────────────────────────────────────────────────────────
+  // 隱藏種族（無法直接捕獲，只能靠進化或合成取得）
+  // ─────────────────────────────────────────────────────────────
+  sunwyrm: {
+    id: 'sunwyrm',
+    name: '曜陽龍',
+    element: 'fire',
+    shape: 'dragon',
+    base: g(300, 120, 34, 28, 40, 24),
+    growth: g(19, 7, 2.4, 2.2, 3.2, 1.8),
+    catchRate: 0,
+    hidden: true,
+    size: 1.6,
+    c1: '#e8762a',
+    c2: '#fff0b0',
+    horns: true,
+    wings: true,
+    desc: '熔岩亞龍吸收了整片火焰後的姿態，鱗片亮得像正午的太陽。',
+    skills: [
+      { level: 1, id: 'flameburst' },
+      { level: 1, id: 'lavaburst' },
+      { level: 1, id: 'sunburst' },
+      { level: 30, id: 'inferno' },
+      { level: 40, id: 'aegis' }
+    ]
+  },
+  tidematron: {
+    id: 'tidematron',
+    name: '潮汐聖母',
+    element: 'water',
+    shape: 'fish',
+    base: g(300, 150, 24, 32, 34, 20),
+    growth: g(20, 8, 2.0, 2.4, 2.8, 1.6),
+    catchRate: 0,
+    hidden: true,
+    size: 1.7,
+    c1: '#3f8fd0',
+    c2: '#d0f8ff',
+    desc: '冰海巨鯨長到極致後，歌聲能讓整片海面平靜下來。',
+    skills: [
+      { level: 1, id: 'tidalwave' },
+      { level: 1, id: 'tsunami' },
+      { level: 1, id: 'tidalprison' },
+      { level: 30, id: 'healall' },
+      { level: 40, id: 'barrier' }
+    ]
+  },
+  aerielord: {
+    id: 'aerielord',
+    name: '蒼穹霸主',
+    element: 'wind',
+    shape: 'bird',
+    base: g(250, 120, 32, 24, 28, 42),
+    growth: g(17, 7, 2.4, 1.9, 2.3, 3.0),
+    catchRate: 0,
+    hidden: true,
+    size: 1.7,
+    c1: '#6fd0a0',
+    c2: '#e8fff0',
+    wings: true,
+    desc: '風暴巨鳥旋上雲頂之後，翅膀一拍就能改變整片草原的風向。',
+    skills: [
+      { level: 1, id: 'cyclone' },
+      { level: 1, id: 'tempest' },
+      { level: 1, id: 'skyrend' },
+      { level: 30, id: 'haste' },
+      { level: 40, id: 'barrier' }
+    ]
+  },
+  geoavatar: {
+    id: 'geoavatar',
+    name: '大地巨神',
+    element: 'earth',
+    shape: 'human',
+    base: g(340, 90, 40, 46, 22, 16),
+    growth: g(24, 5, 3.0, 3.4, 1.6, 1.2),
+    catchRate: 0,
+    hidden: true,
+    size: 1.8,
+    c1: '#a88448',
+    c2: '#f0dcb0',
+    horns: true,
+    desc: '泰坦岩魔站起來的那一刻，整座山都跟著升高了一點。',
+    skills: [
+      { level: 1, id: 'quake' },
+      { level: 1, id: 'stoneedge' },
+      { level: 1, id: 'earthwrath' },
+      { level: 30, id: 'aegis' },
+      { level: 40, id: 'guardup' }
+    ]
+  },
+  prismfox: {
+    id: 'prismfox',
+    name: '稜彩狐',
+    element: 'none',
+    shape: 'beast',
+    base: g(190, 120, 26, 24, 34, 30),
+    growth: g(13, 8.5, 2.0, 1.9, 3.0, 2.4),
+    catchRate: 0,
+    hidden: true,
+    size: 1.2,
+    c1: '#f0d0f0',
+    c2: '#9fe0ff',
+    desc: '毛皮會隨光線折射出不同顏色，同一隻很難被看兩次同樣的樣子。',
+    skills: [
+      { level: 1, id: 'starlance' },
+      { level: 1, id: 'prismray' },
+      { level: 1, id: 'focus' },
+      { level: 26, id: 'barrier' },
+      { level: 34, id: 'starburst' }
+    ]
+  },
+  chronodrake: {
+    id: 'chronodrake',
+    name: '時序幻龍',
+    element: 'none',
+    shape: 'dragon',
+    base: g(300, 150, 32, 30, 38, 34),
+    growth: g(19, 9, 2.3, 2.2, 2.9, 2.6),
+    catchRate: 0,
+    hidden: true,
+    size: 1.7,
+    c1: '#8a7ad8',
+    c2: '#d8f0ff',
+    horns: true,
+    wings: true,
+    desc: '牠的每一次振翅都比上一次早一點發生，彷彿時間被折了起來。',
+    skills: [
+      { level: 1, id: 'creationray' },
+      { level: 1, id: 'timebend' },
+      { level: 1, id: 'starburst' },
+      { level: 32, id: 'aegis' },
+      { level: 42, id: 'stardeath' }
+    ]
+  },
+  nyxbeast: {
+    id: 'nyxbeast',
+    name: '夜影獸',
+    element: 'none',
+    shape: 'beast',
+    base: g(240, 110, 42, 26, 30, 34),
+    growth: g(15, 7, 3.0, 1.9, 2.4, 2.6),
+    catchRate: 0,
+    hidden: true,
+    size: 1.35,
+    c1: '#2a2440',
+    c2: '#a88af0',
+    horns: true,
+    desc: '由影子拼成的野獸，在沒有月光的晚上反而看得更清楚。',
+    skills: [
+      { level: 1, id: 'shadowclaw' },
+      { level: 1, id: 'voidclaw' },
+      { level: 1, id: 'nightfall' },
+      { level: 28, id: 'bloodmoon' },
+      { level: 38, id: 'chaosgaze' }
+    ]
+  },
+  aurorawisp: {
+    id: 'aurorawisp',
+    name: '極光精靈',
+    element: 'none',
+    shape: 'blob',
+    base: g(210, 170, 22, 26, 40, 32),
+    growth: g(13, 10, 1.7, 1.9, 3.1, 2.2),
+    catchRate: 0,
+    hidden: true,
+    size: 1.15,
+    c1: '#9fe8d0',
+    c2: '#f0e0ff',
+    desc: '只有在最冷最安靜的夜裡，才會有一小片極光願意停下來變成牠。',
+    skills: [
+      { level: 1, id: 'aurorabless' },
+      { level: 1, id: 'eclipsebolt' },
+      { level: 1, id: 'starburst' },
+      { level: 30, id: 'purifyAll' },
+      { level: 40, id: 'judgement' }
+    ]
   }
 };
 
@@ -2050,10 +2342,178 @@ export function evolveUnit(unit: Unit, speciesId: string): boolean {
   return true;
 }
 
-/** 若已達進化等級則回傳目標種族 id */
-export function evolutionTarget(sp: SpeciesDef, level: number): string | null {
-  if (sp.evolvesTo && level >= sp.evolvesTo.level) return sp.evolvesTo.species;
+/** 取得種族的所有進化分支 */
+export function evolutionBranches(sp: SpeciesDef): EvolutionDef[] {
+  if (!sp.evolvesTo) return [];
+  return Array.isArray(sp.evolvesTo) ? sp.evolvesTo : [sp.evolvesTo];
+}
+
+/** 依單位目前狀態，列出「條件已滿足」的進化分支 */
+export function evolutionEligible(
+  u: Unit,
+  opts?: { inventory?: Record<string, number>; flags?: Record<string, boolean>; requireItem?: boolean }
+): EvolutionDef[] {
+  const sp = SPECIES[u.speciesId];
+  if (!sp) return [];
+  return evolutionBranches(sp).filter((e) => {
+    if (!SPECIES[e.species]) return false;
+    if (u.level < e.level) return false;
+    if (e.element && u.element !== e.element) return false;
+    if (e.minPotential != null && (u.potential ?? 0) < e.minPotential) return false;
+    if (e.flag && !opts?.flags?.[e.flag]) return false;
+    if (e.item && opts?.requireItem) {
+      if ((opts.inventory?.[e.item] ?? 0) <= 0) return false;
+    }
+    return true;
+  });
+}
+
+/**
+ * 升級時的自動進化判定：
+ * 只考慮「不需要消耗道具」的分支，避免自動吃掉玩家的道具。
+ */
+export function autoEvolution(u: Unit, flags?: Record<string, boolean>): string | null {
+  const sp = SPECIES[u.speciesId];
+  if (!sp) return null;
+  for (const e of evolutionBranches(sp)) {
+    if (e.item) continue;
+    if (u.level < e.level) continue;
+    if (e.element && u.element !== e.element) continue;
+    if (e.minPotential != null && (u.potential ?? 0) < e.minPotential) continue;
+    if (e.flag && !flags?.[e.flag]) continue;
+    return e.species;
+  }
   return null;
+}
+
+// ─────────────────────────────────────────────────────────────
+// 合成 / 育種
+// ─────────────────────────────────────────────────────────────
+export interface FusionDef {
+  a: string;
+  b: string;
+  result: string;
+  /** 合成後的等級（未指定時取雙方平均 +1） */
+  level?: number;
+  desc: string;
+}
+
+/** 特定組合的合成配方（不分順序） */
+export const FUSIONS: FusionDef[] = [
+  { a: 'flamefox', b: 'frostdeer', result: 'prismfox', desc: '火與冰交會之處，會凝出折射光線的毛皮。' },
+  { a: 'emberpup', b: 'snowpup', result: 'prismfox', desc: '兩隻幼獸一起長大時，會彼此染上對方的顏色。' },
+  { a: 'shadowwolf', b: 'voidmoth', result: 'nyxbeast', desc: '影子吞下微光之後，站了起來。' },
+  { a: 'shadehound', b: 'gloomweaver', result: 'nyxbeast', desc: '迴廊裡的兩種黑暗合而為一。' },
+  { a: 'starwisp', b: 'luminox', result: 'aurorawisp', desc: '兩道微光合流，變成一段會呼吸的極光。' },
+  { a: 'starling', b: 'voidmoth', result: 'aurorawisp', desc: '星光淨化了虛空，留下溫柔的帷幕。' },
+  { a: 'crystalwarden', b: 'frostwyrm', result: 'chronodrake', desc: '晶石與冰晶的時間流動並不一致。' },
+  { a: 'lavadrake', b: 'leviathan', result: 'chronodrake', desc: '火與海的古老記憶在高溫與深壓中折疊。' },
+  { a: 'phoenixbird', b: 'skywhale', result: 'aerielord', desc: '天空本身就接住了兩隻飛得最高的幻獸。' },
+  { a: 'titanrock', b: 'magmalord', result: 'geoavatar', desc: '大地的骨與火的血，重新拼成一個站立的神。' },
+  { a: 'czarwyrm', b: 'frostbear', result: 'geoavatar', desc: '兩股厚重力量合成一尊不會倒下的形體。' },
+  { a: 'lavadrake', b: 'magmalord', result: 'sunwyrm', desc: '兩團火合在一起，亮得像正午。' },
+  { a: 'leviathan', b: 'tidecaller', result: 'tidematron', desc: '整片海把聲音交給了同一個存在。' },
+  { a: 'stormroc', b: 'cloudserpent', result: 'aerielord', desc: '風與雲再也分不開。' }
+];
+
+/** 沒有特定配方時，依屬性決定的合成結果（一般種族） */
+const FUSION_BY_ELEMENT: Record<Element, string> = {
+  fire: 'flamefox',
+  water: 'tidecaller',
+  wind: 'stormroc',
+  earth: 'titanrock',
+  none: 'starwisp'
+};
+
+/** 育種：父母同屬性且潛能達門檻時，誕生該屬性的隱藏種族 */
+const FUSION_HIDDEN_BY_ELEMENT: Record<Element, string> = {
+  fire: 'sunwyrm',
+  water: 'tidematron',
+  wind: 'aerielord',
+  earth: 'geoavatar',
+  none: 'aurorawisp'
+};
+
+/** 育種出隱藏種族所需的潛能門檻 */
+export const HIDDEN_FUSION_POTENTIAL = 30;
+
+export function fusionResult(a: Unit, b: Unit): { species: string; recipe: FusionDef | null } {
+  for (const f of FUSIONS) {
+    if ((f.a === a.speciesId && f.b === b.speciesId) || (f.a === b.speciesId && f.b === a.speciesId)) {
+      return { species: f.result, recipe: f };
+    }
+  }
+  // 同種族 → 沿用
+  if (a.speciesId === b.speciesId && SPECIES[a.speciesId]) return { species: a.speciesId, recipe: null };
+  const lead = a.level >= b.level ? a : b;
+  const other = lead === a ? b : a;
+  const el: Element = lead.element !== 'none' ? lead.element : other.element;
+  // 育種：父母同屬性、潛能足夠高 → 隱藏種族
+  if (
+    lead.element !== 'none' &&
+    lead.element === other.element &&
+    fusionPotential(a, b) >= HIDDEN_FUSION_POTENTIAL
+  ) {
+    const hidden = FUSION_HIDDEN_BY_ELEMENT[lead.element];
+    if (hidden && SPECIES[hidden]) return { species: hidden, recipe: null };
+  }
+  return { species: FUSION_BY_ELEMENT[el] ?? 'starwisp', recipe: null };
+}
+
+/** 合成後的潛能：父母平均 + 世代獎勵，上限 50 */
+export function fusionPotential(a: Unit, b: Unit): number {
+  const base = ((a.potential ?? 0) + (b.potential ?? 0)) / 2;
+  const bonus = Math.min(8, Math.floor((a.level + b.level) / 12)) + 5;
+  return Math.max(0, Math.min(50, Math.round(base + bonus)));
+}
+
+/** 合成後的等級 */
+export function fusionLevel(a: Unit, b: Unit, recipe: FusionDef | null): number {
+  if (recipe?.level) return recipe.level;
+  return Math.max(1, Math.floor((a.level + b.level) / 2) + 1);
+}
+
+/** 合成消耗的金幣 */
+export function fusionCost(a: Unit, b: Unit): number {
+  return 200 + (a.level + b.level) * 25;
+}
+
+// ─────────────────────────────────────────────────────────────
+// 裝備強化 / 鑲嵌
+// ─────────────────────────────────────────────────────────────
+export const MAX_UPGRADE = 10;
+export const MAX_SOCKETS = 3;
+
+/** 強化帶來的加成倍率（+1 為 1.2 倍，每級 +0.2） */
+export function upgradeScale(level: number): number {
+  return 1 + 0.2 * Math.max(0, Math.min(MAX_UPGRADE, level));
+}
+
+/** 強化所需：金幣與星塵核心數 */
+export function upgradeCost(nextLevel: number): { gold: number; cores: number } {
+  return { gold: 120 + nextLevel * 90, cores: 1 + Math.floor(nextLevel / 3) };
+}
+
+/** 取得某欄位鑲嵌的寶石效果資料 */
+export function gemsOf(u: Unit, slot: EquipSlot): { id: string; effect: GemEffect }[] {
+  const out: { id: string; effect: GemEffect }[] = [];
+  for (const id of u.gems?.[slot] ?? []) {
+    const def = ITEMS[id];
+    if (def && def.effect.type === 'gem') out.push({ id, effect: def.effect });
+  }
+  return out;
+}
+
+/** 所有裝備 + 寶石的加成（用於 UI 顯示） */
+export function socketSlots(u: Unit, slot: EquipSlot): (string | null)[] {
+  const gems = u.gems?.[slot] ?? [];
+  const out: (string | null)[] = [];
+  for (let i = 0; i < MAX_SOCKETS; i++) out.push(gems[i] ?? null);
+  return out;
+}
+
+export function gemItemIds(): string[] {
+  return Object.keys(ITEMS).filter((id) => ITEMS[id].effect.type === 'gem');
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -2070,25 +2530,39 @@ export function equipItems(u: Unit): { slot: EquipSlot; item: ItemDef }[] {
   return out;
 }
 
-/** 依種族、等級與裝備計算最終能力上限 */
+/** 依種族、等級、裝備強化、鑲嵌寶石與潛能計算最終能力上限 */
 export function statsForUnit(u: Unit): Stats {
   const sp = SPECIES[u.speciesId];
   if (!sp) return u.max ?? { hp: 1, mp: 0, atk: 1, def: 1, mag: 1, spd: 1 };
   const base = statAtLevel(sp, u.level);
   const flat = { hp: 0, mp: 0, atk: 0, def: 0, mag: 0, spd: 0 };
   const mult = { hp: 0, mp: 0, atk: 0, def: 0, mag: 0, spd: 0 };
-  for (const { item } of equipItems(u)) {
+  for (const { slot, item } of equipItems(u)) {
     if (item.effect.type !== 'equip') continue;
+    const scale = upgradeScale(u.equipUp?.[slot] ?? 0);
     for (const k of STAT_KEYS) {
       const b = item.effect.bonus?.[k];
-      if (b) flat[k] += b;
+      if (b) flat[k] += Math.round(b * scale);
       const m = item.effect.mult?.[k];
-      if (m) mult[k] += m;
+      if (m) mult[k] += m * scale;
     }
   }
+  for (const slot of EQUIP_SLOTS) {
+    for (const { effect } of gemsOf(u, slot)) {
+      for (const k of STAT_KEYS) {
+        const b = effect.bonus?.[k];
+        if (b) flat[k] += b;
+        const m = effect.mult?.[k];
+        if (m) mult[k] += m;
+      }
+    }
+  }
+  // 潛能：0~50，提供最多 +25% 全能力
+  const pot = Math.max(0, Math.min(50, u.potential ?? 0));
+  const potMult = 1 + pot / 200;
   const out = {} as Stats;
   for (const k of STAT_KEYS) {
-    const v = (base[k] + flat[k]) * (1 + mult[k]);
+    const v = (base[k] + flat[k]) * (1 + mult[k]) * potMult;
     out[k] = Math.max(k === 'mp' ? 0 : 1, Math.round(v));
   }
   return out;
@@ -2108,7 +2582,7 @@ export function equipDelta(u: Unit): Partial<Record<keyof Stats, number>> {
   return out;
 }
 
-/** 異常狀態的免疫 / 抗性（裝備 + 被動） */
+/** 異常狀態的免疫 / 抗性（裝備 + 寶石 + 被動） */
 export function resistFor(u: Unit, ailment: Ailment): { immune: boolean; resist: number } {
   let immune = false;
   let resist = 0;
@@ -2119,13 +2593,27 @@ export function resistFor(u: Unit, ailment: Ailment): { immune: boolean; resist:
     if (item.effect.type !== 'equip') continue;
     if (item.effect.resist?.[ailment]) resist += item.effect.resist[ailment]!;
   }
+  for (const slot of EQUIP_SLOTS) {
+    for (const { effect } of gemsOf(u, slot)) {
+      if (effect.resist?.[ailment]) resist += effect.resist[ailment]!;
+    }
+  }
   return { immune, resist: Math.max(0, Math.min(0.9, resist)) };
 }
 
-/** 受到指定屬性傷害的減免比例（0~0.9） */
+/** 受到指定屬性傷害的減免比例（0~0.9）：被動 + 裝備 + 寶石 */
 export function elementResistFor(u: Unit, element: Element): number {
   const p = passiveOfUnit(u);
-  const r = p?.elementResist?.[element] ?? 0;
+  let r = p?.elementResist?.[element] ?? 0;
+  for (const { item } of equipItems(u)) {
+    if (item.effect.type !== 'equip') continue;
+    if (item.effect.elementResist?.[element]) r += item.effect.elementResist[element]!;
+  }
+  for (const slot of EQUIP_SLOTS) {
+    for (const { effect } of gemsOf(u, slot)) {
+      if (effect.elementResist?.[element]) r += effect.elementResist[element]!;
+    }
+  }
   return Math.max(0, Math.min(0.9, r));
 }
 
@@ -2158,6 +2646,8 @@ export interface EquipEffect {
   mult?: Partial<Stats>;
   /** 異常狀態抗性：降低被附加的機率（0.5 = 50% 抗性） */
   resist?: Partial<Record<Ailment, number>>;
+  /** 屬性傷害減免（0.2 = -20%） */
+  elementResist?: Partial<Record<Element, number>>;
 }
 
 export interface ItemDef {
@@ -2179,6 +2669,7 @@ export interface ItemDef {
     | { type: 'warp' }
     | { type: 'teach'; skill: string }
     | EquipEffect
+    | GemEffect
     | { type: 'none' };
 }
 
@@ -2479,6 +2970,90 @@ export const ITEMS: Record<string, ItemDef> = {
       bonus: { atk: 10, def: 10 },
       resist: { confuse: 0.6 }
     }
+  },
+
+  // ── 強化素材 ──
+  stardust_core: {
+    id: 'stardust_core',
+    name: '星塵核心',
+    desc: '凝聚星塵而成的核心，能在工房強化裝備。',
+    price: 180,
+    use: 'none',
+    effect: { type: 'none' }
+  },
+  star_core: {
+    id: 'star_core',
+    name: '星輝核心',
+    desc: '高純度的星輝核心，強化高階裝備時必需。',
+    price: 420,
+    use: 'none',
+    effect: { type: 'none' }
+  },
+
+  // ── 鑲嵌寶石：在工房嵌進裝備欄位（每欄位最多 3 顆） ──
+  gem_power: {
+    id: 'gem_power',
+    name: '力量寶石',
+    desc: '鑲嵌後攻擊 +10。',
+    price: 300,
+    use: 'none',
+    effect: { type: 'gem', bonus: { atk: 10 } }
+  },
+  gem_mana: {
+    id: 'gem_mana',
+    name: '魔導寶石',
+    desc: '鑲嵌後魔力 +10、MP +10。',
+    price: 320,
+    use: 'none',
+    effect: { type: 'gem', bonus: { mag: 10, mp: 10 } }
+  },
+  gem_vital: {
+    id: 'gem_vital',
+    name: '生命寶石',
+    desc: '鑲嵌後 HP +50。',
+    price: 340,
+    use: 'none',
+    effect: { type: 'gem', bonus: { hp: 50 } }
+  },
+  gem_guard: {
+    id: 'gem_guard',
+    name: '守護寶石',
+    desc: '鑲嵌後防禦 +10、HP +20。',
+    price: 320,
+    use: 'none',
+    effect: { type: 'gem', bonus: { def: 10, hp: 20 } }
+  },
+  gem_swift: {
+    id: 'gem_swift',
+    name: '疾風寶石',
+    desc: '鑲嵌後速度 +9。',
+    price: 300,
+    use: 'none',
+    effect: { type: 'gem', bonus: { spd: 9 } }
+  },
+  gem_pure: {
+    id: 'gem_pure',
+    name: '淨化寶石',
+    desc: '鑲嵌後中毒、流血、麻痺、睡眠抗性 +40%。',
+    price: 460,
+    use: 'none',
+    effect: { type: 'gem', resist: { poison: 0.4, bleed: 0.4, paralysis: 0.4, sleep: 0.4 } }
+  },
+  gem_ward: {
+    id: 'gem_ward',
+    name: '守序寶石',
+    desc: '鑲嵌後冰凍、混亂抗性 +50%。',
+    price: 480,
+    use: 'none',
+    effect: { type: 'gem', resist: { freeze: 0.5, confuse: 0.5 } }
+  },
+  gem_element: {
+    id: 'gem_element',
+    name: '元素寶石',
+    desc: '鑲嵌後火、水、風、地傷害 -15%。',
+    price: 620,
+    use: 'none',
+    effect: { type: 'gem', elementResist: { fire: 0.15, water: 0.15, wind: 0.15, earth: 0.15 } }
   }
 };
 
@@ -2510,12 +3085,46 @@ export const DEX_REWARDS: DexRewardDef[] = [
   { id: 'dex36', count: 36, desc: '專注寶珠（飾品）', gold: 1200, items: [{ id: 'acc_orb', n: 1 }] },
   { id: 'dex42', count: 42, desc: '影爪（武器）、復甦靈藥 ×2', gold: 1500, exp: 500, items: [{ id: 'weapon_claw', n: 1 }, { id: 'elixir', n: 2 }] },
   {
+    id: 'dex47',
+    count: 47,
+    desc: '星塵核心 ×5、元素寶石 ×1',
+    gold: 1000,
+    items: [{ id: 'stardust_core', n: 5 }, { id: 'gem_element', n: 1 }]
+  },
+  {
     id: 'dex51',
     count: 51,
     desc: '星辰頭冠、技能石・星滅、金幣 3000',
     gold: 3000,
     exp: 2000,
     items: [{ id: 'acc_crown', n: 1 }, { id: 'stone_stardeath', n: 1 }]
+  },
+  {
+    id: 'dex54',
+    count: 54,
+    desc: '深淵之刃、深淵鎧甲、星輝核心 ×3',
+    gold: 4000,
+    exp: 1500,
+    items: [{ id: 'weapon_abyss', n: 1 }, { id: 'armor_abyss', n: 1 }, { id: 'star_core', n: 3 }]
+  },
+  {
+    id: 'dex59',
+    count: 59,
+    desc: '深淵之戒、全部寶石各 1、金幣 8000',
+    gold: 8000,
+    exp: 4000,
+    items: [
+      { id: 'acc_abyss', n: 1 },
+      { id: 'gem_power', n: 1 },
+      { id: 'gem_mana', n: 1 },
+      { id: 'gem_vital', n: 1 },
+      { id: 'gem_guard', n: 1 },
+      { id: 'gem_swift', n: 1 },
+      { id: 'gem_pure', n: 1 },
+      { id: 'gem_ward', n: 1 },
+      { id: 'gem_element', n: 1 },
+      { id: 'star_core', n: 5 }
+    ]
   }
 ];
 

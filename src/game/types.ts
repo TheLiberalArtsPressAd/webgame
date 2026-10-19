@@ -89,6 +89,26 @@ export interface SkillDef {
   cure?: boolean;
 }
 
+/**
+ * 進化條件：可為單一或「多分支」陣列。
+ * 判定順序為陣列順序，玩家也可在選單中手動選擇符合條件的分支。
+ */
+export interface EvolutionDef {
+  species: string;
+  /** 需要達到的等級 */
+  level: number;
+  /** 需要消耗的道具（進化時扣 1 個） */
+  item?: string;
+  /** 需要具備的屬性 */
+  element?: Element;
+  /** 需要的最低潛能（合成培育出的資質） */
+  minPotential?: number;
+  /** 需要完成的劇情旗標 */
+  flag?: string;
+  /** 顯示用說明 */
+  desc?: string;
+}
+
 export interface SpeciesDef {
   id: string;
   name: string;
@@ -106,10 +126,23 @@ export interface SpeciesDef {
   desc: string;
   /** 升級時習得的技能 */
   skills: { level: number; id: string }[];
-  /** 進化：達到等級後變成另一個種族 */
-  evolvesTo?: { species: string; level: number };
+  /** 進化：可為單一條件或多個分支 */
+  evolvesTo?: EvolutionDef | EvolutionDef[];
   /** 被動特性 id（未指定時依 shape 推導） */
   passive?: string;
+  /** 隱藏種族：無法直接捕獲，只能透過進化或合成取得 */
+  hidden?: boolean;
+}
+
+/** 鑲嵌寶石（也是一種道具，effect.type === 'gem'） */
+export interface GemEffect {
+  type: 'gem';
+  bonus?: Partial<Stats>;
+  mult?: Partial<Stats>;
+  /** 異常狀態抗性（0.4 = 降低 40% 觸發機率） */
+  resist?: Partial<Record<Ailment, number>>;
+  /** 屬性傷害減免（0.2 = -20%） */
+  elementResist?: Partial<Record<Element, number>>;
 }
 
 export interface Buff {
@@ -143,4 +176,12 @@ export interface Unit {
   ailmentTurns?: number;
   /** 已裝備的道具（各欄位一個道具 id） */
   equip?: Partial<Record<EquipSlot, string>>;
+  /** 各欄位裝備的強化等級（+0 ~ +10） */
+  equipUp?: Partial<Record<EquipSlot, number>>;
+  /** 各欄位鑲嵌的寶石道具 id（最多 3 顆） */
+  gems?: Partial<Record<EquipSlot, string[]>>;
+  /** 潛能（0~50）：合成培育出的資質，提供額外的全能力加成 */
+  potential?: number;
+  /** 合成世代（第幾代繁殖出來的） */
+  generation?: number;
 }

@@ -1,10 +1,14 @@
-import { SPECIES, ITEMS, DEX_REWARDS, expToNext, skillsFor, statAtLevel, statsForUnit, createUnit, evolveUnit, evolutionTarget } from './data';
+import { ELEMENT_NAME, SPECIES, ITEMS, DEX_REWARDS, expToNext, skillsFor, statAtLevel, statsForUnit, createUnit, evolveUnit, autoEvolution, evolutionEligible, fusionResult, fusionPotential, fusionLevel, fusionCost, HIDDEN_FUSION_POTENTIAL, upgradeCost, MAX_UPGRADE, MAX_SOCKETS, gemsOf } from './data';
+import { ACHIEVEMENTS } from './achievements';
+import type { AchievementDef } from './achievements';
 import { RULES } from './rules';
-import type { Unit } from './types';
+import type { EquipSlot, Unit } from './types';
 import type { QuestDef } from './quests';
 
 export interface GameState {
   version: number;
+  /** 存檔欄位（1~3） */
+  slot: number;
   playerName: string;
   mapId: string;
   px: number;
@@ -16,6 +20,8 @@ export interface GameState {
   storage: Unit[];
   inventory: Record<string, number>;
   gold: number;
+  /** 累計獲得金幣（成就用） */
+  goldEarned: number;
   flags: Record<string, boolean>;
   stage: number;
   steps: number;
@@ -34,6 +40,8 @@ export interface GameState {
   questClaimed: Record<string, boolean>;
   /** 重複委託完成次數 */
   questClears: Record<string, number>;
+  /** 完成的委託總件數（成就用） */
+  questsDone: number;
   /** 已領取的圖鑑收集獎勵 id */
   dexRewards: string[];
   /** 隨機委託（討伐委託板）目前這一批 */
@@ -42,16 +50,50 @@ export interface GameState {
   bountyRound: number;
   /** 隨機委託的種子（建立存檔時決定） */
   bountySeed: number;
+  /** 完成的討伐委託件數（成就用） */
+  bountiesDone: number;
+  /** 每日委託 */
+  dailies: QuestDef[];
+  /** 每日委託所屬日期（YYYY-MM-DD，本地時區） */
+  dailyKey: string;
+  /** 當日已完成的每日委託數 */
+  dailyDone: number;
+  /** 連續完成全部每日委託的天數 */
+  dailyStreak: number;
+  /** 最後一次完成全部每日委託的日期（連續天數判定用） */
+  dailyLastDoneKey: string;
+  /** 合成次數（成就用） */
+  fusions: number;
+  /** 強化次數（成就用） */
+  upgrades: number;
+  /** 鑲嵌次數（成就用） */
+  gemsSocketed: number;
+  /** 進化次數（成就用） */
+  evolutions: number;
+  /** 已解鎖成就 id → 解鎖時間戳 */
+  achievements: Record<string, number>;
+  /** 最後儲存時間 */
+  savedAt?: number;
 }
 
-export const SAVE_KEY = 'stardust-beasts-save-v1';
+export const SAVE_KEY_PREFIX = 'stardust-beasts-save-v1';
+/** 相容舊版：單一存檔欄位 */
+export const SAVE_KEY = `${SAVE_KEY_PREFIX}-s1`;
+export const SAVE_SLOTS = 4;
 export const MAX_PARTY = 4;
 
-export function newGame(name = '旭'): GameState {
+/** 欄位存檔鍵 */
+export function slotKey(slot: number): string {
+  const n = Math.max(1, Math.min(SAVE_SLOTS, Math.floor(slot) || 1));
+  return `${SAVE_KEY_PREFIX}-s${n}`;
+}
+
+export function newGame(name = '旭', slot = 1): GameState {
   const hero = createUnit('hero_asa', 1, 'hero', name);
   const starter = createUnit('dusthare', 2, 'pet');
   const s: GameState = {
     version: 1,
+    slot,
     playerName: name,
     mapId: 'village',
     px: 9,
@@ -61,6 +103,7 @@ export function newGame(name = '旭'): GameState {
     storage: [],
     inventory: { sealstone: 5, herb: 4, manadrop: 2 },
     gold: 250,
+    goldEarned: 250,
     flags: {},
     stage: 0,
     steps: 0,
@@ -73,12 +116,37 @@ export function newGame(name = '旭'): GameState {
     questProgress: {},
     questClaimed: {},
     questClears: {},
+    questsDone: 0,
     dexRewards: [],
     bounties: [],
     bountyRound: 0,
-    bountySeed: Math.floor(Math.random() * 0x7fffffff)
+    bountySeed: Math.floor(Math.random() * 0x7fffffff),
+    bountiesDone: 0,
+    dailies: [],
+    dailyKey: '',
+    dailyDone: 0,
+    dailyStreak: 0,
+    dailyLastDoneKey: '',
+    fusions: 0,
+    upgrades: 0,
+    gemsSocketed: 0,
+    evolutions: 0,
+    achievements: {}
   };
   return s;
+}
+
+/** 增加金幣並累計「累計獲得」 */
+export function addGold(s: GameState, n: number) {
+  s.gold += n;
+  if (n > 0) s.goldEarned = (s.goldEarned ?? 0) + n;
+}
+
+/** 扣除金幣（不足回傳 false） */
+export function spendGold(s: GameState, n: number): boolean {
+  if (s.gold < n) return false;
+  s.gold -= n;
+  return true;
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -185,6 +253,257 @@ export function unequipSlot(s: GameState, u: Unit, slot: 'weapon' | 'armor' | 'a
   return cur;
 }
 
+/** 將幻獸加入隊伍或待命（不計入「封印數」） */
+export function pushPet(s: GameState, unit: Unit): 'party' | 'storage' {
+  s.dex[unit.speciesId] = true;
+  if (s.party.length < MAX_PARTY) {
+    s.party.push(unit);
+    return 'party';
+  }
+  s.storage.push(unit);
+  return 'storage';
+}
+
+/** 從隊伍或待命中移除某隻幻獸 */
+export function removeUnit(s: GameState, u: Unit): boolean {
+  let i = s.party.findIndex((x) => x.uid === u.uid);
+  if (i >= 0) {
+    s.party.splice(i, 1);
+    return true;
+  }
+  i = s.storage.findIndex((x) => x.uid === u.uid);
+  if (i >= 0) {
+    s.storage.splice(i, 1);
+    return true;
+  }
+  return false;
+}
+
+/** 把待命幻獸移到隊伍（隊伍需有空位） */
+export function toParty(s: GameState, u: Unit): boolean {
+  if (s.party.length >= MAX_PARTY) return false;
+  const i = s.storage.findIndex((x) => x.uid === u.uid);
+  if (i < 0) return false;
+  s.storage.splice(i, 1);
+  s.party.push(u);
+  return true;
+}
+
+/** 把隊伍幻獸移到待命 */
+export function toStorage(s: GameState, u: Unit): boolean {
+  if (s.party.length <= 1) return false;
+  const i = s.party.findIndex((x) => x.uid === u.uid);
+  if (i < 0) return false;
+  s.party.splice(i, 1);
+  s.storage.push(u);
+  return true;
+}
+
+// ─────────────────────────────────────────────────────────────
+// 進化（手動選擇分支）
+// ─────────────────────────────────────────────────────────────
+export function evolveOptions(s: GameState, u: Unit) {
+  return evolutionEligible(u, { inventory: s.inventory, flags: s.flags, requireItem: true });
+}
+
+/** 手動進化到指定種族（需符合條件、消耗道具）。成功回傳新種族名稱。 */
+export function evolveManual(s: GameState, u: Unit, speciesId: string): string | null {
+  const opts = evolveOptions(s, u);
+  const branch = opts.find((e) => e.species === speciesId);
+  if (!branch) return null;
+  if (branch.item && !removeItem(s, branch.item, 1)) return null;
+  if (!evolveUnit(u, speciesId)) return null;
+  s.dex[speciesId] = true;
+  s.evolutions = (s.evolutions ?? 0) + 1;
+  return SPECIES[speciesId]?.name ?? speciesId;
+}
+
+// ─────────────────────────────────────────────────────────────
+// 合成 / 育種
+// ─────────────────────────────────────────────────────────────
+export interface FusionPreview {
+  species: string;
+  level: number;
+  potential: number;
+  cost: number;
+  recipeDesc?: string;
+  canAfford: boolean;
+  /** 結果是否為隱藏種族 */
+  hidden: boolean;
+  /** 育種提示（無固定配方時） */
+  hint?: string;
+}
+
+/** 兩隻幻獸能否合成 */
+export function canFuse(s: GameState, a: Unit, b: Unit): string | null {
+  if (!a || !b) return '請選擇兩隻幻獸';
+  if (a.uid === b.uid) return '不能與自己合成';
+  if (a.kind !== 'pet' || b.kind !== 'pet') return '英雄無法合成';
+  if (!SPECIES[a.speciesId] || !SPECIES[b.speciesId]) return '未知的幻獸';
+  return null;
+}
+
+export function fusionPreview(s: GameState, a: Unit, b: Unit): FusionPreview | null {
+  if (canFuse(s, a, b)) return null;
+  const r = fusionResult(a, b);
+  if (!SPECIES[r.species]) return null;
+  const cost = fusionCost(a, b);
+  const potential = fusionPotential(a, b);
+  const hidden = !!SPECIES[r.species].hidden;
+  let hint: string | undefined;
+  if (!r.recipe && !hidden && a.element === b.element && a.element !== 'none') {
+    hint = `兩隻皆為${ELEMENT_NAME[a.element]}屬性：潛能達 ${HIDDEN_FUSION_POTENTIAL} 可育出隱藏種族`;
+  }
+  return {
+    species: r.species,
+    level: fusionLevel(a, b, r.recipe),
+    potential,
+    cost,
+    recipeDesc: r.recipe?.desc,
+    canAfford: s.gold >= cost,
+    hidden,
+    hint
+  };
+}
+
+/** 合成兩隻幻獸：消耗金幣與父母，產生新的一隻 */
+export function fusePets(s: GameState, a: Unit, b: Unit): { unit: Unit; preview: FusionPreview } | null {
+  const p = fusionPreview(s, a, b);
+  if (!p || !spendGold(s, p.cost)) return null;
+  const child = createUnit(p.species, p.level, 'pet');
+  child.potential = p.potential;
+  child.generation = Math.max(a.generation ?? 0, b.generation ?? 0) + 1;
+  child.max = statsForUnit(child);
+  child.hp = child.max.hp;
+  child.mp = child.max.mp;
+  removeUnit(s, a);
+  removeUnit(s, b);
+  pushPet(s, child);
+  s.fusions = (s.fusions ?? 0) + 1;
+  return { unit: child, preview: p };
+}
+
+// ─────────────────────────────────────────────────────────────
+// 裝備強化 / 鑲嵌
+// ─────────────────────────────────────────────────────────────
+export function upgradeLevelOf(u: Unit, slot: EquipSlot): number {
+  return Math.max(0, Math.min(MAX_UPGRADE, u.equipUp?.[slot] ?? 0));
+}
+
+export interface UpgradeCheck {
+  ok: boolean;
+  reason?: string;
+  cost?: { gold: number; cores: number };
+  material?: string;
+  level: number;
+}
+
+export function canUpgrade(s: GameState, u: Unit, slot: EquipSlot): UpgradeCheck {
+  const id = u.equip?.[slot];
+  const item = id ? ITEMS[id] : undefined;
+  const level = upgradeLevelOf(u, slot);
+  if (!item || item.effect.type !== 'equip') return { ok: false, reason: '此欄位尚未裝備', level };
+  if (level >= MAX_UPGRADE) return { ok: false, reason: '已達最高強化等級', level };
+  const cost = upgradeCost(level + 1);
+  const material = level + 1 >= 8 ? 'star_core' : 'stardust_core';
+  if (s.gold < cost.gold) return { ok: false, reason: '金幣不足', cost, material, level };
+  if (itemCount(s, material) < cost.cores) {
+    return { ok: false, reason: `${ITEMS[material]?.name ?? material}不足`, cost, material, level };
+  }
+  return { ok: true, cost, material, level };
+}
+
+export function upgradeEquip(s: GameState, u: Unit, slot: EquipSlot): boolean {
+  const c = canUpgrade(s, u, slot);
+  if (!c.ok || !c.cost || !c.material) return false;
+  if (!spendGold(s, c.cost.gold)) return false;
+  if (!removeItem(s, c.material, c.cost.cores)) {
+    addGold(s, c.cost.gold);
+    return false;
+  }
+  u.equipUp = u.equipUp ?? {};
+  u.equipUp[slot] = c.level + 1;
+  s.upgrades = (s.upgrades ?? 0) + 1;
+  recalc(u);
+  return true;
+}
+
+export function gemSlots(u: Unit, slot: EquipSlot): (string | null)[] {
+  const g = u.gems?.[slot] ?? [];
+  const out: (string | null)[] = [];
+  for (let i = 0; i < MAX_SOCKETS; i++) out.push(g[i] ?? null);
+  return out;
+}
+
+export function canSocket(u: Unit, slot: EquipSlot): boolean {
+  const id = u.equip?.[slot];
+  const item = id ? ITEMS[id] : undefined;
+  if (!item || item.effect.type !== 'equip') return false;
+  return (u.gems?.[slot] ?? []).length < MAX_SOCKETS;
+}
+
+export function socketGem(s: GameState, u: Unit, slot: EquipSlot, gemId: string): boolean {
+  const def = ITEMS[gemId];
+  if (!def || def.effect.type !== 'gem') return false;
+  if (!canSocket(u, slot)) return false;
+  if (!removeItem(s, gemId, 1)) return false;
+  u.gems = u.gems ?? {};
+  u.gems[slot] = [...(u.gems[slot] ?? []), gemId];
+  s.gemsSocketed = (s.gemsSocketed ?? 0) + 1;
+  recalc(u);
+  return true;
+}
+
+/** 取下第 index 顆寶石並退回背包 */
+export function removeGem(s: GameState, u: Unit, slot: EquipSlot, index: number): boolean {
+  const cur = u.gems?.[slot];
+  if (!cur || index < 0 || index >= cur.length) return false;
+  const gem = cur.splice(index, 1)[0];
+  addItem(s, gem, 1);
+  if (cur.length === 0 && u.gems) delete u.gems[slot];
+  recalc(u);
+  return true;
+}
+
+/** 某欄位目前鑲嵌的寶石（含效果） */
+export function socketedGems(u: Unit, slot: EquipSlot) {
+  return gemsOf(u, slot);
+}
+
+// ─────────────────────────────────────────────────────────────
+// 成就
+// ─────────────────────────────────────────────────────────────
+export function unlockedCount(s: GameState): number {
+  return Object.keys(s.achievements ?? {}).length;
+}
+
+/** 檢查並發放所有已達成但未領取的成就，回傳本次新解鎖的成就 */
+export function grantAchievements(s: GameState): AchievementDef[] {
+  s.achievements = s.achievements ?? {};
+  const got: AchievementDef[] = [];
+  for (let pass = 0; pass < 4; pass++) {
+    let any = false;
+    for (const a of ACHIEVEMENTS) {
+      if (s.achievements[a.id]) continue;
+      let ok = false;
+      try {
+        ok = a.check(s);
+      } catch {
+        ok = false;
+      }
+      if (!ok) continue;
+      s.achievements[a.id] = Date.now();
+      if (a.gold) addGold(s, a.gold);
+      for (const it of a.items ?? []) addItem(s, it.id, it.n);
+      if (a.exp) for (const u of [...s.party, ...s.storage]) giveExp(s, u, a.exp);
+      got.push(a);
+      any = true;
+    }
+    if (!any) break;
+  }
+  return got;
+}
+
 // ─────────────────────────────────────────────────────────────
 // 圖鑑收集獎勵
 // ─────────────────────────────────────────────────────────────
@@ -202,7 +521,7 @@ export function claimDexRewards(s: GameState): string[] {
     s.dexRewards.push(r.id);
     const parts: string[] = [];
     if (r.gold) {
-      s.gold += r.gold;
+      addGold(s, r.gold);
       parts.push(`${r.gold} G`);
     }
     for (const it of r.items ?? []) {
@@ -247,10 +566,11 @@ export function giveExp(s: GameState, unit: Unit, amount: number): LevelUpInfo |
     // 進化判定
     const sp = SPECIES[unit.speciesId];
     if (sp) {
-      const target = evolutionTarget(sp, unit.level);
+      const target = autoEvolution(unit, s.flags);
       if (target && SPECIES[target]) {
         if (evolveUnit(unit, target)) {
           s.dex[target] = true;
+          s.evolutions = (s.evolutions ?? 0) + 1;
           evolvedTo = SPECIES[target].name;
           for (const sk of unit.skills) if (!before.has(sk) && !learned.includes(sk)) learned.push(sk);
         }
@@ -268,41 +588,100 @@ export function pointerDepth() {
 }
 
 // ─────────────────────────────────────────────────────────────
-export function saveGame(s: GameState) {
+// 存檔（多欄位）
+// ─────────────────────────────────────────────────────────────
+const LEGACY_KEY = 'stardust-beasts-save-v1';
+
+/** 讀取原始存檔字串（含舊版單一存檔的遷移） */
+function readRaw(slot: number): string | null {
   try {
-    localStorage.setItem(SAVE_KEY, JSON.stringify(s));
+    if (slot === 1) {
+      const legacy = localStorage.getItem(LEGACY_KEY);
+      if (legacy && !localStorage.getItem(slotKey(1))) {
+        localStorage.setItem(slotKey(1), legacy);
+        localStorage.removeItem(LEGACY_KEY);
+      }
+    }
+    return localStorage.getItem(slotKey(slot));
+  } catch {
+    return null;
+  }
+}
+
+export interface SaveMeta {
+  slot: number;
+  exists: boolean;
+  name?: string;
+  level?: number;
+  playTime?: number;
+  mapId?: string;
+  gold?: number;
+  dexCount?: number;
+  savedAt?: number;
+}
+
+export function saveGame(s: GameState, slot?: number): boolean {
+  const n = Math.max(1, Math.min(SAVE_SLOTS, Math.floor(slot ?? s.slot ?? 1) || 1));
+  try {
+    s.slot = n;
+    s.savedAt = Date.now();
+    localStorage.setItem(slotKey(n), JSON.stringify(s));
     return true;
   } catch {
     return false;
   }
 }
 
-export function loadGame(): GameState | null {
+/** 正規化舊存檔缺漏的欄位 */
+function normalize(s: GameState): GameState {
+  s.flags = s.flags ?? {};
+  s.dex = s.dex ?? {};
+  s.storage = s.storage ?? [];
+  s.inventory = s.inventory ?? {};
+  s.lastTown = s.lastTown ?? 'village';
+  s.questTaken = s.questTaken ?? [];
+  s.questProgress = s.questProgress ?? {};
+  s.questClaimed = s.questClaimed ?? {};
+  s.questClears = s.questClears ?? {};
+  s.questsDone = Number(s.questsDone) || 0;
+  s.dexRewards = Array.isArray(s.dexRewards) ? s.dexRewards : [];
+  s.bounties = Array.isArray(s.bounties) ? s.bounties : [];
+  s.bountyRound = Number(s.bountyRound) || 0;
+  s.bountySeed = Number(s.bountySeed) || Math.floor(Math.random() * 0x7fffffff);
+  s.bountiesDone = Number(s.bountiesDone) || 0;
+  s.dailies = Array.isArray(s.dailies) ? s.dailies : [];
+  s.dailyKey = s.dailyKey ?? '';
+  s.dailyDone = Number(s.dailyDone) || 0;
+  s.dailyStreak = Number(s.dailyStreak) || 0;
+  s.dailyLastDoneKey = s.dailyLastDoneKey ?? '';
+  s.fusions = Number(s.fusions) || 0;
+  s.upgrades = Number(s.upgrades) || 0;
+  s.gemsSocketed = Number(s.gemsSocketed) || 0;
+  s.evolutions = Number(s.evolutions) || 0;
+  s.achievements = s.achievements ?? {};
+  s.goldEarned = Number(s.goldEarned) || s.gold || 0;
+  s.slot = Number(s.slot) || 1;
+  for (const u of [...s.party, ...s.storage]) {
+    u.buffs = u.buffs ?? [];
+    u.max = u.max ?? statAtLevel(SPECIES[u.speciesId], u.level);
+    u.ailmentTurns = u.ailmentTurns ?? 0;
+    u.equip = u.equip ?? {};
+    u.equipUp = u.equipUp ?? {};
+    u.gems = u.gems ?? {};
+    u.potential = Number(u.potential) || 0;
+    u.generation = Number(u.generation) || 0;
+  }
+  return s;
+}
+
+export function loadGame(slot = 1): GameState | null {
   try {
-    const raw = localStorage.getItem(SAVE_KEY);
+    const raw = readRaw(slot);
     if (!raw) return null;
     const s = JSON.parse(raw) as GameState;
     if (!s || s.version !== 1 || !Array.isArray(s.party)) return null;
-    // 補齊欄位，避免舊存檔缺欄位
-    s.flags = s.flags ?? {};
-    s.dex = s.dex ?? {};
-    s.storage = s.storage ?? [];
-    s.inventory = s.inventory ?? {};
-    s.lastTown = s.lastTown ?? 'village';
-    s.questTaken = s.questTaken ?? [];
-    s.questProgress = s.questProgress ?? {};
-    s.questClaimed = s.questClaimed ?? {};
-    s.questClears = s.questClears ?? {};
-    s.dexRewards = Array.isArray(s.dexRewards) ? s.dexRewards : [];
-    s.bounties = Array.isArray(s.bounties) ? s.bounties : [];
-    s.bountyRound = Number(s.bountyRound) || 0;
-    s.bountySeed = Number(s.bountySeed) || Math.floor(Math.random() * 0x7fffffff);
-    for (const u of [...s.party, ...s.storage]) {
-      u.buffs = u.buffs ?? [];
-      u.max = u.max ?? statAtLevel(SPECIES[u.speciesId], u.level);
-      u.ailmentTurns = u.ailmentTurns ?? 0;
-      u.equip = u.equip ?? {};
-    }
+    s.slot = slot;
+    normalize(s);
     // 後台調整種族數值後，讓舊存檔也套用新的能力值（保留 HP/MP 百分比）
     if (RULES.recalcOnLoad) {
       for (const u of [...s.party, ...s.storage]) {
@@ -332,17 +711,48 @@ export function loadGame(): GameState | null {
   }
 }
 
-export function hasSave(): boolean {
+/** 讀取某欄位的存檔摘要（不載入整份存檔） */
+export function saveMeta(slot: number): SaveMeta {
+  const raw = readRaw(slot);
+  if (!raw) return { slot, exists: false };
   try {
-    return !!localStorage.getItem(SAVE_KEY);
+    const s = JSON.parse(raw) as GameState;
+    let level = 0;
+    for (const u of s.party ?? []) if (u.level > level) level = u.level;
+    return {
+      slot,
+      exists: true,
+      name: s.playerName,
+      level,
+      playTime: s.playTime,
+      mapId: s.mapId,
+      gold: s.gold,
+      dexCount: Object.keys(s.dex ?? {}).filter((k) => SPECIES[k]).length,
+      savedAt: s.savedAt
+    };
   } catch {
-    return false;
+    return { slot, exists: false };
   }
 }
 
-export function deleteSave() {
+export function listSaves(): SaveMeta[] {
+  const out: SaveMeta[] = [];
+  for (let i = 1; i <= SAVE_SLOTS; i++) out.push(saveMeta(i));
+  return out;
+}
+
+export function hasSave(slot = 1): boolean {
+  return !!readRaw(slot);
+}
+
+export function anySave(): boolean {
+  for (let i = 1; i <= SAVE_SLOTS; i++) if (readRaw(i)) return true;
+  return false;
+}
+
+export function deleteSave(slot = 1) {
   try {
-    localStorage.removeItem(SAVE_KEY);
+    localStorage.removeItem(slotKey(slot));
   } catch {
     /* ignore */
   }

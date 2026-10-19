@@ -6,7 +6,7 @@
  */
 import { ITEMS, SPECIES, itemName } from './data';
 import { MAPS } from './maps';
-import { addItem, giveExp, itemCount, removeItem, type GameState } from './state';
+import { addGold, addItem, giveExp, itemCount, removeItem, type GameState } from './state';
 
 export interface QuestDef {
   id: string;
@@ -175,14 +175,26 @@ export function questById(id: string): QuestDef | undefined {
   return QUESTS.find((q) => q.id === id);
 }
 
-/** 解析委託：先找隨機委託，再找固定委託 */
+/** 解析委託：先找每日 / 隨機委託，再找固定委託 */
 export function resolveQuest(s: GameState, id: string): QuestDef | undefined {
-  return s.bounties?.find((q) => q.id === id) ?? questById(id);
+  return (
+    s.dailies?.find((q) => q.id === id) ??
+    s.bounties?.find((q) => q.id === id) ??
+    questById(id)
+  );
 }
 
-/** 委託板顯示的完整清單（固定 + 隨機） */
+/** 委託板顯示的完整清單（固定 + 每日 + 隨機） */
 export function allQuests(s: GameState): QuestDef[] {
-  return [...QUESTS, ...(s.bounties ?? [])];
+  return [...QUESTS, ...(s.dailies ?? []), ...(s.bounties ?? [])];
+}
+
+export function isDaily(q: QuestDef): boolean {
+  return q.id.startsWith('day_');
+}
+
+export function isBounty(q: QuestDef): boolean {
+  return q.id.startsWith('rnd');
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -326,11 +338,131 @@ export function rerollBounties(s: GameState): number {
   return s.bountyRound;
 }
 
-export function isTaken(s: GameState, id: string): boolean {
-  return s.questTaken.includes(id);
+// ─────────────────────────────────────────────────────────────
+// 每日委託（依本地日期每天更新）
+// ─────────────────────────────────────────────────────────────
+export const DAILY_COUNT = 3;
+
+/** 本地日期字串 YYYY-MM-DD */
+export function dailyKeyOf(d = new Date()): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
 }
 
-export function isClaimed(s: GameState, id: string): boolean {
+function dateSeed(key: string): number {
+  let h = 2166136261;
+  for (let i = 0; i < key.length; i++) {
+    h ^= key.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return h >>> 0;
+}
+
+/** 產生指定日期的每日委託（同一天固定同一批） */
+export function generateDailies(key: string): QuestDef[] {
+  const rng = mulberry32(dateSeed(key));
+  const { species, maps, items } = bountyPools();
+  const kinds: QuestDef['kind'][] = ['kill', 'catch', 'deliver', 'reach'];
+  for (let i = kinds.length - 1; i > 0; i--) {
+    const j = Math.floor(rng() * (i + 1));
+    [kinds[i], kinds[j]] = [kinds[j], kinds[i]];
+  }
+  const out: QuestDef[] = [];
+  for (let i = 0; i < DAILY_COUNT; i++) {
+    const kind = kinds[i % kinds.length];
+    const reward: QuestDef['reward'] = {
+      gold: 400 + i * 150,
+      exp: 160 + i * 70,
+      items: [{ id: i >= 2 ? 'star_core' : 'stardust_core', n: 1 }]
+    };
+    const id = `day_${key}_${i}`;
+    if (kind === 'kill' && species.length) {
+      const target = pick(rng, species);
+      out.push({
+        id,
+        title: `【每日】${SPECIES[target].name} 討伐`,
+        desc: `討伐 ${SPECIES[target].name} ×3，維持道路安全。`,
+        kind: 'kill',
+        target,
+        count: 3,
+        reward
+      });
+    } else if (kind === 'catch' && species.length) {
+      const target = pick(rng, species);
+      out.push({
+        id,
+        title: `【每日】${SPECIES[target].name} 捕獲`,
+        desc: `以封印石捕捉 ${SPECIES[target].name} ×1，供研究使用。`,
+        kind: 'catch',
+        target,
+        count: 1,
+        reward
+      });
+    } else if (kind === 'deliver' && items.length) {
+      const target = pick(rng, items);
+      out.push({
+        id,
+        title: `【每日】${itemName(target)} 徵集`,
+        desc: `徵集 ${itemName(target)} ×2，供旅人補給。`,
+        kind: 'deliver',
+        target,
+        count: 2,
+        reward
+      });
+    } else if (maps.length) {
+      const target = pick(rng, maps);
+      out.push({
+        id,
+        title: `【每日】踏查 ${MAPS[target].name}`,
+        desc: `前往 ${MAPS[target].name} 確認路況並回報。`,
+        kind: 'reach',
+        target,
+        count: 1,
+        reward
+      });
+    } else {
+      const target = species.length ? pick(rng, species) : 'dusthare';
+      out.push({
+        id,
+        title: `【每日】${SPECIES[target]?.name ?? target} 討伐`,
+        desc: '討伐指定的幻獸。',
+        kind: 'kill',
+        target,
+        count: 3,
+        reward
+      });
+    }
+  }
+  return out;
+}
+
+/** 跨日時更新每日委託（保留連續完成天數） */
+export function ensureDailies(s: GameState): boolean {
+  const key = dailyKeyOf();
+  if (s.dailyKey === key && Array.isArray(s.dailies) && s.dailies.length > 0) return false;
+  const prune = (rec: Record<string, unknown>) => {
+    for (const k of Object.keys(rec)) if (k.startsWith('day_')) delete rec[k];
+  };
+  prune(s.questProgress as unknown as Record<string, unknown>);
+  prune(s.questClaimed as unknown as Record<string, unknown>);
+  prune(s.questClears as unknown as Record<string, unknown>);
+  s.questTaken = (s.questTaken ?? []).filter((x) => !x.startsWith('day_'));
+  s.dailies = generateDailies(key);
+  s.dailyKey = key;
+  s.dailyDone = 0;
+  return true;
+}
+
+/** 今日每日委託完成情況 */
+export function dailyState(s: GameState): { total: number; done: number; streak: number } {
+  return { total: (s.dailies ?? []).length, done: s.dailyDone ?? 0, streak: s.dailyStreak ?? 0 };
+}
+
+export function isTaken(s: GameState, id: string): boolean {
+  return s.questTaken.includes(id);
+}export function isClaimed(s: GameState, id: string): boolean {
   return !!s.questClaimed[id];
 }
 
@@ -375,7 +507,7 @@ export function claimQuest(s: GameState, q: QuestDef): string | null {
 
   const parts: string[] = [];
   if (q.reward.gold) {
-    s.gold += q.reward.gold;
+    addGold(s, q.reward.gold);
     parts.push(`${q.reward.gold} G`);
   }
   for (const it of q.reward.items ?? []) {
@@ -391,6 +523,19 @@ export function claimQuest(s: GameState, q: QuestDef): string | null {
   s.questProgress[q.id] = 0;
   if (q.repeatable) s.questClears[q.id] = (s.questClears[q.id] ?? 0) + 1;
   else s.questClaimed[q.id] = true;
+
+  s.questsDone = (s.questsDone ?? 0) + 1;
+  if (isBounty(q)) s.bountiesDone = (s.bountiesDone ?? 0) + 1;
+  if (isDaily(q)) {
+    s.dailyDone = (s.dailyDone ?? 0) + 1;
+    // 完成當日全部每日委託 → 連續天數
+    if (s.dailies.length > 0 && s.dailyDone >= s.dailies.length) {
+      const yesterday = dailyKeyOf(new Date(Date.now() - 86400000));
+      s.dailyStreak = s.dailyLastDoneKey === yesterday ? (s.dailyStreak ?? 0) + 1 : 1;
+      s.dailyLastDoneKey = s.dailyKey;
+      parts.push(`每日全勤！連續 ${s.dailyStreak} 天`);
+    }
+  }
   return parts.join('、');
 }
 

@@ -14,9 +14,9 @@ import {
 import { MAPS, MAP_GRIDS, tileAt, type MapDef, type NpcDef, type PropDef } from '../game/maps';
 import { npcDialogue, questHint, SCRIPTED_BATTLES, type BattleBg, type StoryLine } from '../game/story';
 import { session, type GameState } from '../game/session';
-import { addItem, fullRestore, giveExp, MAX_PARTY } from '../game/state';
+import { addItem, fullRestore, giveExp, grantAchievements, MAX_PARTY } from '../game/state';
 import { createUnit, ITEMS, itemName, SPECIES } from '../game/data';
-import { questOnArrive, activeQuestSummary } from '../game/quests';
+import { questOnArrive, activeQuestSummary, ensureDailies } from '../game/quests';
 import { audio, bgmForMap } from '../engine/audio';
 import { BattleScene } from './battleScene';
 import { MenuScene, QuestScene, ShopScene } from './menus';
@@ -113,6 +113,14 @@ export class FieldScene implements Scene {
     this.s = session.state;
     this.syncMap();
     if (this.map.encounters) this.encounterGrace = Math.max(this.encounterGrace, 1);
+    // 每日委託：跨日時自動更新
+    if (ensureDailies(this.s)) {
+      this.toast('今日的委託已更新，記得到委託板看看。', '#9fe0ff');
+    }
+    // 進入世界時補發成就
+    for (const a of grantAchievements(this.s)) {
+      this.toast(`🏆 成就達成：${a.name}`, '#ffd76a');
+    }
   }
 
   // ── 地圖切換 ──
@@ -387,7 +395,7 @@ export class FieldScene implements Scene {
       const prop = this.propAt(t.x, t.y);
       if (!prop) continue;
       if (prop.kind === 'board') {
-        scenes.push(new QuestScene());
+        scenes.push(new QuestScene(() => this.syncMap()));
         return true;
       }
       if (prop.text) {
@@ -464,7 +472,7 @@ export class FieldScene implements Scene {
           this.toast('全隊 HP / MP 已完全恢復', '#8ef0a8');
           break;
         case 'shop':
-          scenes.push(new ShopScene());
+          scenes.push(new ShopScene(() => this.syncMap()));
           return;
         case 'travel': {
           const mapId = seg[1];
