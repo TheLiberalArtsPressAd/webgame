@@ -25,6 +25,14 @@ export interface GameState {
   dex: Record<string, boolean>;
   /** 最近造訪的城鎮（傳送羽用） */
   lastTown: string;
+  /** 已接取的委託 */
+  questTaken: string[];
+  /** 委託進度（擊倒 / 封印 / 抵達次數） */
+  questProgress: Record<string, number>;
+  /** 一次性委託是否已回報 */
+  questClaimed: Record<string, boolean>;
+  /** 重複委託完成次數 */
+  questClears: Record<string, number>;
 }
 
 export const SAVE_KEY = 'stardust-beasts-save-v1';
@@ -51,7 +59,11 @@ export function newGame(name = '旭'): GameState {
     battlesWon: 0,
     captured: 0,
     dex: { hero_asa: true, dusthare: true },
-    lastTown: 'village'
+    lastTown: 'village',
+    questTaken: [],
+    questProgress: {},
+    questClaimed: {},
+    questClears: {}
   };
   return s;
 }
@@ -202,6 +214,10 @@ export function loadGame(): GameState | null {
     s.storage = s.storage ?? [];
     s.inventory = s.inventory ?? {};
     s.lastTown = s.lastTown ?? 'village';
+    s.questTaken = s.questTaken ?? [];
+    s.questProgress = s.questProgress ?? {};
+    s.questClaimed = s.questClaimed ?? {};
+    s.questClears = s.questClears ?? {};
     for (const u of [...s.party, ...s.storage]) {
       u.buffs = u.buffs ?? [];
       u.max = u.max ?? statAtLevel(SPECIES[u.speciesId], u.level);

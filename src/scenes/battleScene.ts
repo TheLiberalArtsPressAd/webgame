@@ -1,9 +1,10 @@
 import { VIEW_H, VIEW_W, scenes, type Scene } from '../engine/scene';
 import * as input from '../engine/input';
 import { bar, drawBeast, drawHero, label, panel, shade, wrapText } from '../engine/draw';
-import { createUnit, AILMENT_COLOR, AILMENT_ICON, AILMENT_NAME, ELEMENT_COLOR, ELEMENT_NAME, ITEMS, SKILLS, itemName } from '../game/data';
+import { createUnit, AILMENT_COLOR, AILMENT_ICON, AILMENT_NAME, ELEMENT_COLOR, ELEMENT_NAME, FIELD_EFFECTS, ITEMS, SKILLS, SPECIES, itemName } from '../game/data';
 import { session } from '../game/session';
 import { addItem, addPet, giveExp, itemCount, removeItem, type LevelUpInfo } from '../game/state';
+import { questOnCapture, questOnWin } from '../game/quests';
 import {
   actionBlocked,
   allDead,
@@ -12,10 +13,12 @@ import {
   captureChance,
   chooseAiAction,
   clearAilment,
+  confusionSelfHit,
   effStat,
   expReward,
   fleeChance,
   goldReward,
+  onDamaged,
   tickAilments,
   tickBuffs,
   tryAilment,
@@ -24,12 +27,28 @@ import {
 import type { SkillDef, Unit } from '../game/types';
 import type { BattleBg } from '../game/story';
 
+/** 頭目戰階段：依頭目血量百分比觸發 */
+export interface BattlePhase {
+  /** 當頭目 HP 低於此比例（0~1）時觸發 */
+  hpBelow: number;
+  /** 顯示的訊息 */
+  message: string;
+  /** 呼叫增援 */
+  summon?: { species: string; level: number }[];
+  /** 狂暴：對所有敵人附加增益 */
+  enrage?: { stat: 'hp' | 'mp' | 'atk' | 'def' | 'mag' | 'spd'; amount: number; turns: number }[];
+  /** 回復頭目 HP（最大 HP 的比例） */
+  healRatio?: number;
+}
+
 export interface BattleOptions {
   enemies: Unit[];
   bg: BattleBg;
   boss: boolean;
   canFlee: boolean;
   intro?: string;
+  /** 頭目階段機制（選用） */
+  phases?: BattlePhase[];
   onEnd: (r: 'win' | 'lose' | 'flee') => void;
 }
 
@@ -101,12 +120,17 @@ export class BattleScene implements Scene {
   defeatedEnemies: Unit[] = [];
   resultLines: string[] = [];
   showHelp = false;
+  /** 頭目階段是否已觸發 */
+  phaseDone: boolean[] = [];
+  /** 排隊等待顯示的階段訊息 */
+  phaseQueue: string[] = [];
 
   constructor(opt: BattleOptions) {
     this.opt = opt;
     this.enemies = opt.enemies;
     this.party = session.state.party;
     this.message = opt.intro ?? '戰鬥開始！';
+    this.phaseDone = new Array(opt.phases?.length ?? 0).fill(false);
     for (const u of [...this.party, ...this.enemies]) {
       this.fx.set(u.uid, { shake: 0, flash: 0, ox: 0, oy: 0 });
       u.buffs = [];
@@ -452,6 +476,12 @@ export class BattleScene implements Scene {
       this.waitTimer -= dt;
       return;
     }
+    // 頭目階段訊息優先顯示
+    if (this.phaseQueue.length > 0) {
+      this.message = this.phaseQueue.shift()!;
+      this.waitTimer = 1.5;
+      return;
+    }
     if (this.pendingCommand) {
       this.pendingCommand = false;
       this.beginCommandPhase();
@@ -478,15 +508,18 @@ export class BattleScene implements Scene {
   }
 
   private endRound() {
-    // 回合結束：異常狀態（毒）與增益/減益到期
-    const poison = tickAilments([...this.party, ...this.enemies]);
+    // 回合結束：異常狀態（毒 / 流血）與增益/減益到期
+    const dots = tickAilments([...this.party, ...this.enemies]);
     const expired = tickBuffs([...this.party, ...this.enemies]);
     const parts: string[] = [];
-    for (const p of poison) {
+    for (const p of dots) {
       this.hit(p.unit, 0.6);
       const pos = this.posOf(p.unit);
-      this.float(pos.x, pos.y - 60, `${p.dmg}`, '#b07ae0', 20);
-      parts.push(`${p.unit.name} 受到毒的侵蝕（${p.dmg}）。`);
+      const color = p.ailment === 'bleed' ? '#e06060' : '#b07ae0';
+      this.float(pos.x, pos.y - 60, `${p.dmg}`, color, 20);
+      parts.push(
+        `${p.unit.name} 受到${AILMENT_NAME[p.ailment]}的侵蝕（${p.dmg}）。`
+      );
     }
     for (const e of expired) parts.push(`${e.unit.name} 的「${e.name}」效果結束了。`);
     if (parts.length) {
@@ -544,6 +577,65 @@ export class BattleScene implements Scene {
     if (target.hp <= 0) {
       target.buffs = [];
       this.float(pos.x, pos.y - 106, '戰鬥不能', '#c8b0ff', 14);
+    } else {
+      // 冰凍碎裂 / 睡眠驚醒
+      const broken = onDamaged(target);
+      if (broken) {
+        this.float(pos.x, pos.y - 86, `${AILMENT_NAME[broken]}解除`, '#9fe0ff', 13);
+      }
+    }
+    this.checkPhases();
+  }
+
+  // ── 頭目階段 ─────────────────────────────────────────────
+  /** 頭目血量低於門檻時觸發增援 / 狂暴 / 回復 */
+  private checkPhases() {
+    const phases = this.opt.phases;
+    if (!phases || phases.length === 0) return;
+    const leader = this.enemies[0];
+    if (!leader || leader.hp <= 0) return;
+    const ratio = leader.hp / leader.max.hp;
+    for (let i = 0; i < phases.length; i++) {
+      if (this.phaseDone[i]) continue;
+      const ph = phases[i];
+      if (ratio > ph.hpBelow) continue;
+      this.phaseDone[i] = true;
+      this.applyPhase(ph, leader);
+      if (ph.message) this.phaseQueue.push(ph.message);
+    }
+  }
+
+  private applyPhase(ph: BattlePhase, leader: Unit) {
+    // 回復
+    if (ph.healRatio) {
+      const amount = Math.min(Math.floor(leader.max.hp * ph.healRatio), leader.max.hp - leader.hp);
+      leader.hp += amount;
+      const p = this.posOf(leader);
+      this.float(p.x, p.y - 60, `+${amount}`, '#8ef0a8', 22);
+    }
+    // 狂暴
+    if (ph.enrage) {
+      for (const e of this.aliveEnemies()) {
+        for (const b of ph.enrage) {
+          e.buffs.push({ stat: b.stat, amount: b.amount, turns: b.turns, name: '狂暴' });
+        }
+        this.getFx(e).flash = 1;
+        const p = this.posOf(e);
+        this.float(p.x, p.y - 86, '狂暴化!', '#ff9a6a', 17);
+      }
+    }
+    // 增援
+    if (ph.summon) {
+      for (const sm of ph.summon) {
+        if (!SPECIES[sm.species]) continue;
+        const u = createUnit(sm.species, Math.max(1, sm.level), 'enemy');
+        u.hp = u.max.hp;
+        u.mp = u.max.mp;
+        this.enemies.push(u);
+        this.fx.set(u.uid, { shake: 0, flash: 0.8, ox: 0, oy: 0 });
+        const p = this.posOf(u);
+        this.float(p.x, p.y - 60, '增援!', '#ffd24a', 18);
+      }
     }
   }
 
@@ -551,15 +643,32 @@ export class BattleScene implements Scene {
     const { actor, cmd } = a;
     const isEnemy = actor.kind === 'enemy';
 
-    // 異常狀態：睡眠必定無法行動；麻痺有機率無法行動
+    // 異常狀態：睡眠 / 冰凍必定無法行動；麻痺 / 混亂有機率無法行動
     const blocked = actionBlocked(actor);
     if (blocked) {
-      this.message =
-        blocked === 'sleep'
-          ? `${actor.name} 正在沉睡，無法行動。`
-          : `${actor.name} 被麻痺了，無法行動！`;
-      this.float(this.posOf(actor).x, this.posOf(actor).y - 60, '無法行動', '#f0d060', 16);
+      const p = this.posOf(actor);
+      if (blocked === 'sleep') {
+        this.message = `${actor.name} 正在沉睡，無法行動。`;
+        this.float(p.x, p.y - 60, '沉睡', '#8ab0e8', 16);
+      } else if (blocked === 'freeze') {
+        this.message = `${actor.name} 被凍住了，無法行動！`;
+        this.float(p.x, p.y - 60, '冰凍', '#7fe0f0', 16);
+      } else if (blocked === 'paralysis') {
+        this.message = `${actor.name} 被麻痺了，無法行動！`;
+        this.float(p.x, p.y - 60, '麻痺', '#f0d060', 16);
+      } else {
+        this.message = `${actor.name} 陷入混亂，無法行動！`;
+        this.float(p.x, p.y - 60, '混亂', '#e0a0e0', 16);
+      }
       this.waitTimer = 0.7;
+      return;
+    }
+    // 混亂時可能誤傷自己
+    if (actor.ailment === 'confuse' && confusionSelfHit()) {
+      const res = calcDamage(actor, actor, null);
+      this.damage(actor, res.dmg, res.crit, res.mult, '');
+      this.message = `${actor.name} 陷入混亂，攻擊了自己！ 造成 ${res.dmg} 傷害。`;
+      this.waitTimer = 0.8;
       return;
     }
 
@@ -664,7 +773,7 @@ export class BattleScene implements Scene {
 
   private performAttack(actor: Unit, target: Unit) {
     this.lunge(actor, target);
-    const res = calcDamage(actor, target, null);
+    const res = calcDamage(actor, target, null, this.opt.bg);
     const el = actor.element === 'none' ? '' : `【${ELEMENT_NAME[actor.element]}】`;
     this.damage(target, res.dmg, res.crit, res.mult, el);
     this.message = `${actor.name} 的攻擊！ 對 ${target.name} 造成 ${res.dmg} 傷害。`;
@@ -766,12 +875,13 @@ export class BattleScene implements Scene {
     }
     // 攻擊技
     this.lunge(actor, primary);
-    const targets = sk.target === 'allEnemy' ? this.aliveEnemies() : [primary];
+    const targets = sk.target === 'allEnemy' ? foes() : [primary];
     let total = 0;
     let anyCrit = false;
     let mult = 1;
+    const appliedNames: string[] = [];
     for (const t of targets) {
-      const res = calcDamage(actor, t, sk);
+      const res = calcDamage(actor, t, sk, this.opt.bg);
       this.damage(t, res.dmg, res.crit, res.mult, '');
       total += res.dmg;
       mult = res.mult;
@@ -781,11 +891,16 @@ export class BattleScene implements Scene {
         if (applied) {
           const p = this.posOf(t);
           this.float(p.x, p.y - 86, AILMENT_NAME[sk.ailment], AILMENT_COLOR[sk.ailment], 15);
+          appliedNames.push(t.name);
         }
       }
     }
     this.message = `${actor.name} 使用了${label2}！ 造成 ${total} 傷害。${
       mult > 1 ? '（效果絕佳）' : mult < 1 ? '（效果不佳）' : ''
+    }${
+      appliedNames.length
+        ? ` ${appliedNames.join('、')} 陷入了${AILMENT_NAME[sk.ailment!]}。`
+        : ''
     }`;
   }
 
@@ -833,6 +948,18 @@ export class BattleScene implements Scene {
           : `${target.name} 並沒有異常狀態。`;
         break;
       }
+      case 'healAll': {
+        let total = 0;
+        for (const u of this.aliveParty()) {
+          const amount = Math.min(def.effect.power, u.max.hp - u.hp);
+          u.hp += amount;
+          total += amount;
+          const q = this.posOf(u);
+          this.float(q.x, q.y - 60, `+${amount}`, '#8ef0a8', 18);
+        }
+        this.message = `${actor.name} 使用了 ${def.name}，全隊共回復 ${total} HP。`;
+        break;
+      }
       case 'damage': {
         this.damage(target, def.effect.power, false, 1, '');
         this.message = `${actor.name} 投出了 ${def.name}！ 對 ${target.name} 造成 ${def.effect.power} 傷害。`;
@@ -859,6 +986,7 @@ export class BattleScene implements Scene {
       caught.mp = target.mp;
       const where = addPet(session.state, caught);
       target.hp = 0;
+      questOnCapture(session.state, target.speciesId);
       this.message = `${target.name} 被封印了！${
         where === 'party' ? '加入了出戰隊伍。' : '已送往待命區。'
       }`;
@@ -897,6 +1025,10 @@ export class BattleScene implements Scene {
       lines.push('撿到了 星塵碎片 ×1。');
     }
     s.battlesWon++;
+    questOnWin(
+      s,
+      this.enemies.map((e) => e.speciesId)
+    );
 
     this.resultLines = lines;
     this.message = '戰鬥勝利！';
@@ -1000,7 +1132,25 @@ export class BattleScene implements Scene {
     }
 
     this.drawBottom(ctx);
+    this.drawFieldFx(ctx);
     if (this.showHelp) this.drawHelp(ctx);
+  }
+
+  /** 場地效果標示 */
+  private drawFieldFx(ctx: CanvasRenderingContext2D) {
+    const f = FIELD_EFFECTS[this.opt.bg];
+    if (!f) return;
+    panel(ctx, VIEW_W / 2 - 108, 12, 216, 26, {
+      radius: 13,
+      fill: 'rgba(8,12,24,0.72)',
+      border: 'rgba(150,190,255,0.35)'
+    });
+    label(ctx, `場地：${f.name}`, VIEW_W / 2, 30, {
+      size: 13,
+      align: 'center',
+      color: '#ffe6a8',
+      bold: true
+    });
   }
 
   private drawHelp(ctx: CanvasRenderingContext2D) {
@@ -1016,8 +1166,10 @@ export class BattleScene implements Scene {
       '封印需要消耗「封印石」，敵方 HP 越低成功率越高',
       '防禦可讓該成員本回合受到的傷害減半',
       '屬性相剋：火 → 風 → 地 → 水 → 火（效果絕佳 1.6 倍）',
-      '異常狀態：☠中毒（每回合受傷）　⚡麻痺（可能無法行動）　Z睡眠',
-      '異常狀態可用「解毒草」或技能「淨化」解除',
+      '異常狀態：☠中毒　✚流血（每回合受傷）　⚡麻痺　Z睡眠　❄冰凍　？混亂（機率無法行動）',
+      '中毒 / 流血可用「解毒草」或技能「淨化」「大淨化」解除，冰凍受擊即碎',
+      '場地效果會強化對應屬性傷害，畫面頂端會標示',
+      '頭目在血量過半時可能狂暴化或呼叫增援，注意節奏',
       '',
       '再按一次 Esc 關閉本說明'
     ];
@@ -1034,7 +1186,8 @@ export class BattleScene implements Scene {
       harbor: ['#10203c', '#1e3a5e', '#2a4a5e'],
       snow: ['#2a3a5c', '#4a6a90', '#c8dcec'],
       volcano: ['#2a0e08', '#5a2010', '#8a3a14'],
-      sky: ['#1a1638', '#3a2f74', '#7a6ac0']
+      sky: ['#1a1638', '#3a2f74', '#7a6ac0'],
+      abyss: ['#08040f', '#1c0a2e', '#2e1046']
     };
     const [c1, c2, c3] = palettes[this.opt.bg] ?? palettes.field;
     const g = ctx.createLinearGradient(0, 0, 0, VIEW_H);

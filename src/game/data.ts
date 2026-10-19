@@ -27,21 +27,32 @@ export const ELEMENT_COLOR: Record<Element, string> = {
 // ─────────────────────────────────────────────────────────────
 export const AILMENT_NAME: Record<Ailment, string> = {
   poison: '中毒',
+  bleed: '流血',
   paralysis: '麻痺',
-  sleep: '睡眠'
+  sleep: '睡眠',
+  freeze: '冰凍',
+  confuse: '混亂'
 };
 
 export const AILMENT_COLOR: Record<Ailment, string> = {
   poison: '#b07ae0',
+  bleed: '#e06060',
   paralysis: '#f0d060',
-  sleep: '#8ab0e8'
+  sleep: '#8ab0e8',
+  freeze: '#7fe0f0',
+  confuse: '#e0a0e0'
 };
 
 export const AILMENT_ICON: Record<Ailment, string> = {
   poison: '☠',
+  bleed: '✚',
   paralysis: '⚡',
-  sleep: 'Z'
+  sleep: 'Z',
+  freeze: '❄',
+  confuse: '？'
 };
+
+export const ALL_AILMENTS: Ailment[] = ['poison', 'bleed', 'paralysis', 'sleep', 'freeze', 'confuse'];
 
 const BEATS: Record<Element, Element> = {
   fire: 'wind',
@@ -599,8 +610,187 @@ export const SKILLS: Record<string, SkillDef> = {
     power: 56,
     kind: 'attack',
     target: 'allEnemy'
+  },
+
+  // ── 追加：新異常狀態 ──
+  rend: {
+    id: 'rend',
+    name: '撕裂',
+    desc: '深可見骨的爪擊，使敵人流血不止。',
+    element: 'none',
+    mp: 6,
+    power: 28,
+    kind: 'attack',
+    target: 'enemy',
+    physical: true,
+    ailment: 'bleed',
+    ailmentChance: 0.8,
+    ailmentTurns: 4
+  },
+  icebind: {
+    id: 'icebind',
+    name: '冰縛',
+    desc: '將敵人凍結在冰牢之中，使其無法行動。',
+    element: 'water',
+    mp: 12,
+    power: 30,
+    kind: 'attack',
+    target: 'enemy',
+    ailment: 'freeze',
+    ailmentChance: 0.5,
+    ailmentTurns: 2
+  },
+  chaosgaze: {
+    id: 'chaosgaze',
+    name: '混亂凝視',
+    desc: '擾亂敵人的意識，使其陷入混亂。',
+    element: 'none',
+    mp: 10,
+    power: 0,
+    kind: 'status',
+    target: 'enemy',
+    ailment: 'confuse',
+    ailmentChance: 0.7,
+    ailmentTurns: 3
+  },
+  deepfreeze: {
+    id: 'deepfreeze',
+    name: '絕對零度',
+    desc: '席捲全場的極寒，凍傷並可能凍結所有敵人。',
+    element: 'water',
+    mp: 24,
+    power: 42,
+    kind: 'attack',
+    target: 'allEnemy',
+    ailment: 'freeze',
+    ailmentChance: 0.35,
+    ailmentTurns: 2
+  },
+  bloodmoon: {
+    id: 'bloodmoon',
+    name: '血月斬',
+    desc: '染紅夜空的斬擊，使所有敵人嚴重流血。',
+    element: 'none',
+    mp: 20,
+    power: 38,
+    kind: 'attack',
+    target: 'allEnemy',
+    physical: true,
+    ailment: 'bleed',
+    ailmentChance: 0.6,
+    ailmentTurns: 4
+  },
+
+  // ── 追加：輔助（我方） ──
+  purifyAll: {
+    id: 'purifyAll',
+    name: '大淨化',
+    desc: '解除我方全體的異常狀態。',
+    element: 'none',
+    mp: 14,
+    power: 0,
+    kind: 'heal',
+    target: 'allAlly',
+    cure: true
+  },
+  warcry: {
+    id: 'warcry',
+    name: '戰吼',
+    desc: '提升我方全體攻擊力 30%（3 回合）。',
+    element: 'none',
+    mp: 14,
+    power: 0.3,
+    kind: 'buff',
+    target: 'allAlly',
+    stat: 'atk',
+    turns: 3
+  },
+  regen: {
+    id: 'regen',
+    name: '生命之泉',
+    desc: '回復我方全體 HP。',
+    element: 'none',
+    mp: 22,
+    power: 40,
+    kind: 'heal',
+    target: 'allAlly'
+  },
+
+  // ── 追加：深淵（終盤） ──
+  abyssgrasp: {
+    id: 'abyssgrasp',
+    name: '深淵之握',
+    desc: '自深淵伸出的黑暗之手，襲擊所有敵人。',
+    element: 'none',
+    mp: 28,
+    power: 52,
+    kind: 'attack',
+    target: 'allEnemy'
+  },
+  stardeath: {
+    id: 'stardeath',
+    name: '星滅',
+    desc: '讓星辰殞落的一擊，威力驚人。',
+    element: 'none',
+    mp: 34,
+    power: 74,
+    kind: 'attack',
+    target: 'enemy'
+  },
+  aegis: {
+    id: 'aegis',
+    name: '神盾',
+    desc: '大幅提升我方全體防禦力 50%（3 回合）。',
+    element: 'none',
+    mp: 20,
+    power: 0.5,
+    kind: 'buff',
+    target: 'allAlly',
+    stat: 'def',
+    turns: 3
+  },
+  judgement: {
+    id: 'judgement',
+    name: '天罰',
+    desc: '自天頂落下的審判之光，橫掃所有敵人。',
+    element: 'none',
+    mp: 32,
+    power: 58,
+    kind: 'attack',
+    target: 'allEnemy'
   }
 };
+
+// ─────────────────────────────────────────────────────────────
+// 場地效果：依戰鬥背景給予屬性加成
+// ─────────────────────────────────────────────────────────────
+export interface FieldEffectDef {
+  name: string;
+  /** 受到加成的屬性（none = 無加成，僅有敘述） */
+  element: Element;
+  /** 該屬性傷害倍率 */
+  mult: number;
+  desc: string;
+}
+
+export const FIELD_EFFECTS: Record<string, FieldEffectDef> = {
+  field: { name: '草原之風', element: 'wind', mult: 1.2, desc: '微風吹拂，風屬性傷害 +20%。' },
+  cave: { name: '星塵魔力', element: 'none', mult: 1.15, desc: '晶石共鳴，所有傷害 +15%。' },
+  road: { name: '荒野塵土', element: 'earth', mult: 1.2, desc: '大地乾裂，地屬性傷害 +20%。' },
+  harbor: { name: '海潮', element: 'water', mult: 1.2, desc: '海氣瀰漫，水屬性傷害 +20%。' },
+  snow: { name: '極寒', element: 'water', mult: 1.3, desc: '寒氣刺骨，水屬性傷害 +30%。' },
+  volcano: { name: '熔岩', element: 'fire', mult: 1.3, desc: '熱浪翻騰，火屬性傷害 +30%。' },
+  sky: { name: '星穹', element: 'none', mult: 1.2, desc: '星辰之力，所有傷害 +20%。' },
+  abyss: { name: '深淵', element: 'none', mult: 1.3, desc: '深淵侵蝕，所有傷害 +30%。' }
+};
+
+/** 場地加成：'none' 表示全屬性加成 */
+export function fieldMultiplier(bg: string, element: Element): number {
+  const f = FIELD_EFFECTS[bg];
+  if (!f) return 1;
+  if (f.element === 'none') return f.mult;
+  return f.element === element ? f.mult : 1;
+}
 
 // ─────────────────────────────────────────────────────────────
 // 種族（幻獸 + 劇情角色）
@@ -1205,6 +1395,7 @@ export const SPECIES: Record<string, SpeciesDef> = {
     skills: [
       { level: 1, id: 'stoneedge' },
       { level: 1, id: 'guardup' },
+      { level: 12, id: 'rend' },
       { level: 16, id: 'sandtomb' },
       { level: 24, id: 'quake' }
     ]
@@ -1283,6 +1474,7 @@ export const SPECIES: Record<string, SpeciesDef> = {
     c2: '#8a70c8',
     wings: true,
     desc: '翅膀上的紋路會吸走周圍的光，接近時會感到一陣耳鳴。',
+    evolvesTo: { species: 'voiddragon', level: 30 },
     skills: [
       { level: 1, id: 'voidclaw' },
       { level: 1, id: 'weaken' },
@@ -1346,6 +1538,7 @@ export const SPECIES: Record<string, SpeciesDef> = {
       { level: 1, id: 'frostbreath' },
       { level: 1, id: 'frostnova' },
       { level: 1, id: 'heal' },
+      { level: 8, id: 'icebind' },
       { level: 12, id: 'dragonbreath' }
     ]
   },
@@ -1367,6 +1560,7 @@ export const SPECIES: Record<string, SpeciesDef> = {
     skills: [
       { level: 1, id: 'bite' },
       { level: 1, id: 'stonepunch' },
+      { level: 10, id: 'rend' },
       { level: 14, id: 'sandtomb' }
     ]
   },
@@ -1386,6 +1580,7 @@ export const SPECIES: Record<string, SpeciesDef> = {
       { level: 1, id: 'ember' },
       { level: 1, id: 'flameburst' },
       { level: 6, id: 'slow' },
+      { level: 14, id: 'chaosgaze' },
       { level: 20, id: 'cometfall' }
     ]
   },
@@ -1426,6 +1621,7 @@ export const SPECIES: Record<string, SpeciesDef> = {
     skills: [
       { level: 1, id: 'frostbreath' },
       { level: 1, id: 'frostnova' },
+      { level: 1, id: 'icebind' },
       { level: 1, id: 'crystalbeam' },
       { level: 8, id: 'barrier' }
     ]
@@ -1470,6 +1666,173 @@ export const SPECIES: Record<string, SpeciesDef> = {
       { level: 1, id: 'starburst' },
       { level: 1, id: 'healall' },
       { level: 1, id: 'dragonbreath' }
+    ]
+  },
+
+  // ───────────── 終盤：深淵迴廊 ─────────────
+  shadehound: {
+    id: 'shadehound',
+    name: '影犬',
+    element: 'none',
+    shape: 'beast',
+    base: g(96, 34, 26, 17, 15, 26),
+    growth: g(11, 3.6, 2.9, 1.8, 1.5, 2.6),
+    catchRate: 0.18,
+    size: 1.05,
+    c1: '#3a3450',
+    c2: '#8f7fd8',
+    desc: '在深淵的光影之間穿梭，咬痕會久久無法癒合。',
+    skills: [
+      { level: 1, id: 'shadowclaw' },
+      { level: 1, id: 'rend' },
+      { level: 10, id: 'haste' },
+      { level: 20, id: 'bloodmoon' }
+    ]
+  },
+  gloomweaver: {
+    id: 'gloomweaver',
+    name: '幽網蛛',
+    element: 'none',
+    shape: 'bug',
+    base: g(110, 62, 19, 22, 27, 20),
+    growth: g(12, 5.6, 2.0, 2.3, 3.0, 2.0),
+    catchRate: 0.14,
+    size: 1.1,
+    c1: '#2a2440',
+    c2: '#9a86e8',
+    desc: '編織的網能纏住思緒，讓獵物連自己在做什麼都忘了。',
+    skills: [
+      { level: 1, id: 'venomfang' },
+      { level: 1, id: 'chaosgaze' },
+      { level: 12, id: 'weaken' },
+      { level: 22, id: 'eclipsebolt' }
+    ]
+  },
+  frostlich: {
+    id: 'frostlich',
+    name: '霜巫妖',
+    element: 'water',
+    shape: 'human',
+    base: g(130, 96, 17, 20, 32, 18),
+    growth: g(13, 8, 1.7, 2.0, 3.4, 1.8),
+    catchRate: 0.12,
+    size: 1.15,
+    c1: '#cfe8ff',
+    c2: '#5a86d8',
+    desc: '把自己的名字封進冰裡的施術者，至今仍在低聲詠唱。',
+    skills: [
+      { level: 1, id: 'icebind' },
+      { level: 1, id: 'heal' },
+      { level: 10, id: 'focus' },
+      { level: 18, id: 'deepfreeze' },
+      { level: 26, id: 'revive' }
+    ]
+  },
+  abyssknight: {
+    id: 'abyssknight',
+    name: '深淵騎士',
+    element: 'none',
+    shape: 'human',
+    base: g(150, 60, 33, 30, 18, 17),
+    growth: g(15, 5, 3.4, 3.0, 1.8, 1.7),
+    catchRate: 0.1,
+    size: 1.2,
+    c1: '#4a4458',
+    c2: '#c8b0ff',
+    desc: '誓死守著迴廊入口的甲冑，裡面早已沒有身體。',
+    skills: [
+      { level: 1, id: 'strike' },
+      { level: 1, id: 'guardup' },
+      { level: 10, id: 'aegis' },
+      { level: 20, id: 'bloodmoon' },
+      { level: 28, id: 'stardeath' }
+    ]
+  },
+  voiddragon: {
+    id: 'voiddragon',
+    name: '虛空龍',
+    element: 'none',
+    shape: 'dragon',
+    base: g(190, 100, 31, 26, 33, 21),
+    growth: g(18, 8, 3.0, 2.5, 3.2, 2.0),
+    catchRate: 0.07,
+    size: 1.45,
+    c1: '#241c3c',
+    c2: '#9a70e8',
+    horns: true,
+    wings: true,
+    desc: '張口時能看見牠體內整片沒有星星的夜空。',
+    skills: [
+      { level: 1, id: 'voidstorm' },
+      { level: 1, id: 'eclipsebolt' },
+      { level: 12, id: 'abyssgrasp' },
+      { level: 24, id: 'dragonbreath' },
+      { level: 30, id: 'stardeath' }
+    ]
+  },
+  starwisp: {
+    id: 'starwisp',
+    name: '星燼',
+    element: 'none',
+    shape: 'blob',
+    base: g(88, 120, 12, 16, 30, 24),
+    growth: g(9, 10, 1.3, 1.7, 3.2, 2.3),
+    catchRate: 0.16,
+    size: 0.8,
+    c1: '#fff4d0',
+    c2: '#f0b860',
+    desc: '由隕落星辰的餘燼聚成，靠近時會聽見極輕微的歌聲。',
+    skills: [
+      { level: 1, id: 'purifyAll' },
+      { level: 1, id: 'regen' },
+      { level: 8, id: 'focus' },
+      { level: 16, id: 'judgement' },
+      { level: 24, id: 'healall' }
+    ]
+  },
+  nullbeast: {
+    id: 'nullbeast',
+    name: '虛無獸',
+    element: 'none',
+    shape: 'beast',
+    base: g(280, 90, 36, 30, 28, 24),
+    growth: g(24, 7, 3.6, 3.0, 2.8, 2.4),
+    catchRate: 0.04,
+    size: 1.5,
+    c1: '#2a2438',
+    c2: '#e0d0ff',
+    horns: true,
+    desc: '深淵迴廊的中樞守衛，據說牠吞下的東西不會再出現在世上。',
+    skills: [
+      { level: 1, id: 'abyssgrasp' },
+      { level: 1, id: 'deepfreeze' },
+      { level: 1, id: 'chaosgaze' },
+      { level: 10, id: 'aegis' },
+      { level: 20, id: 'judgement' },
+      { level: 30, id: 'stardeath' }
+    ]
+  },
+  abysssovereign: {
+    id: 'abysssovereign',
+    name: '深淵主宰',
+    element: 'none',
+    shape: 'dragon',
+    base: g(420, 160, 42, 36, 40, 28),
+    growth: g(30, 10, 3.4, 3.0, 3.4, 2.2),
+    catchRate: 0,
+    size: 1.8,
+    c1: '#1a1428',
+    c2: '#c8a0ff',
+    horns: true,
+    wings: true,
+    desc: '迴廊最深處的存在。牠不說話，只是張開，讓所有光都被收進去。',
+    skills: [
+      { level: 1, id: 'abyssgrasp' },
+      { level: 1, id: 'judgement' },
+      { level: 1, id: 'stardeath' },
+      { level: 1, id: 'aegis' },
+      { level: 1, id: 'healall' },
+      { level: 1, id: 'deepfreeze' }
     ]
   }
 };
@@ -1584,6 +1947,7 @@ export interface ItemDef {
     | { type: 'cure' }
     | { type: 'damage'; power: number }
     | { type: 'warp' }
+    | { type: 'teach'; skill: string }
     | { type: 'none' };
 }
 
@@ -1683,6 +2047,80 @@ export const ITEMS: Record<string, ItemDef> = {
     price: 220,
     use: 'none',
     effect: { type: 'none' }
+  },
+  elixir: {
+    id: 'elixir',
+    name: '復甦靈藥',
+    desc: '回復我方全體 150 HP。',
+    price: 320,
+    use: 'both',
+    effect: { type: 'healAll', power: 150 }
+  },
+  bomb_hi: {
+    id: 'bomb_hi',
+    name: '星輝炸彈',
+    desc: '對單體敵人造成固定 320 點傷害（無視防禦與屬性）。',
+    price: 300,
+    use: 'battle',
+    effect: { type: 'damage', power: 320 }
+  },
+
+  // ── 技能石：在場上對幻獸使用，可永久傳授技能 ──
+  stone_purify: {
+    id: 'stone_purify',
+    name: '技能石・淨化',
+    desc: '傳授「淨化」給一隻幻獸（解除我方單體異常狀態）。',
+    price: 260,
+    use: 'field',
+    effect: { type: 'teach', skill: 'purify' }
+  },
+  stone_warcry: {
+    id: 'stone_warcry',
+    name: '技能石・戰吼',
+    desc: '傳授「戰吼」給一隻幻獸（我方全體攻擊力 +30%）。',
+    price: 320,
+    use: 'field',
+    effect: { type: 'teach', skill: 'warcry' }
+  },
+  stone_icebind: {
+    id: 'stone_icebind',
+    name: '技能石・冰縛',
+    desc: '傳授「冰縛」給一隻幻獸（機率凍結敵人）。',
+    price: 300,
+    use: 'field',
+    effect: { type: 'teach', skill: 'icebind' }
+  },
+  stone_rend: {
+    id: 'stone_rend',
+    name: '技能石・撕裂',
+    desc: '傳授「撕裂」給一隻幻獸（使敵人流血）。',
+    price: 280,
+    use: 'field',
+    effect: { type: 'teach', skill: 'rend' }
+  },
+  stone_regen: {
+    id: 'stone_regen',
+    name: '技能石・生命之泉',
+    desc: '傳授「生命之泉」給一隻幻獸（回復我方全體 HP）。',
+    price: 380,
+    use: 'field',
+    effect: { type: 'teach', skill: 'regen' }
+  },
+  stone_aegis: {
+    id: 'stone_aegis',
+    name: '技能石・神盾',
+    desc: '傳授「神盾」給一隻幻獸（我方全體防禦力大幅提升）。',
+    price: 420,
+    use: 'field',
+    effect: { type: 'teach', skill: 'aegis' }
+  },
+  stone_stardeath: {
+    id: 'stone_stardeath',
+    name: '技能石・星滅',
+    desc: '傳授「星滅」給一隻幻獸（威力驚人的單體一擊）。',
+    price: 900,
+    use: 'field',
+    effect: { type: 'teach', skill: 'stardeath' }
   }
 };
 

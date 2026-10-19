@@ -18,7 +18,19 @@ export interface StoryNode {
 // 任務提示
 // ─────────────────────────────────────────────────────────────
 export function questHint(s: GameState): string {
-  if (s.flags['ended']) return '冒險已告一段落。';
+  if (s.flags['true_ended']) return '星塵大陸的故事，就此真正完結。';
+  if (s.flags['ended']) {
+    switch (s.stage) {
+      case 11:
+        return '風空港出現了通往「深淵迴廊」的裂縫。';
+      case 12:
+        return '深入深淵迴廊，尋找中樞的存在。';
+      case 13:
+        return '走向迴廊最深處，面對一切的源頭。';
+      default:
+        return '冒險已告一段落。';
+    }
+  }
   switch (s.stage) {
     case 0:
       return '與村中的「星見長老」談話。';
@@ -457,6 +469,35 @@ export function npcDialogue(id: string, s: GameState): StoryNode {
       };
     }
 
+    // ── 深淵迴廊（結局後） ──
+    case 'sky_gate': {
+      if (s.flags['true_ended']) {
+        return {
+          lines: [
+            { who: '守望者 卡蘭', text: '裂縫……合起來了。' },
+            { who: '卡蘭', text: '我在這裡守了三十年，等的就是這一天。' },
+            { who: '卡蘭', text: '去過那裡的人，眼睛裡都會多一點光。你也是。' }
+          ]
+        };
+      }
+      if (s.flags['ended']) {
+        return {
+          lines: [
+            { who: '守望者 卡蘭', text: '你也在看那個裂縫嗎？' },
+            { who: '卡蘭', text: '自從星塵回到天上，港的西邊就裂開一道口子。' },
+            { who: '卡蘭', text: '裡面沒有風、沒有回音……只有很深的安靜。' },
+            { who: '卡蘭', text: '如果你要下去，記得——帶燈，跟帶光，是兩回事。' }
+          ]
+        };
+      }
+      return {
+        lines: [
+          { who: '守望者 卡蘭', text: '西邊禁止靠近。風空港下面是空的，誰知道通到哪裡。' },
+          { who: '卡蘭', text: '等天上那件事了結了，再說吧。' }
+        ]
+      };
+    }
+
     default:
       return { lines: [{ who: '？', text: '……' }] };
   }
@@ -474,10 +515,22 @@ export interface ScriptedBattle {
   /** 戰勝後執行的動作 */
   onWin?: string;
   bg: BattleBg;
+  /** 頭目階段機制（依頭目 HP 比例觸發） */
+  phases?: BattlePhaseDef[];
+}
+
+/** 頭目階段：血量低於門檻時的增援 / 狂暴 / 回復 */
+export interface BattlePhaseDef {
+  /** 頭目 HP 低於此比例（0~1）時觸發 */
+  hpBelow: number;
+  message: string;
+  summon?: { species: string; level: number }[];
+  enrage?: { stat: 'atk' | 'def' | 'mag' | 'spd' | 'hp' | 'mp'; amount: number; turns: number }[];
+  healRatio?: number;
 }
 
 /** 戰鬥背景 */
-export type BattleBg = 'field' | 'cave' | 'road' | 'harbor' | 'snow' | 'volcano' | 'sky';
+export type BattleBg = 'field' | 'cave' | 'road' | 'harbor' | 'snow' | 'volcano' | 'sky' | 'abyss';
 
 export const SCRIPTED_BATTLES: Record<string, ScriptedBattle> = {
   hound: {
@@ -603,9 +656,118 @@ export const SCRIPTED_BATTLES: Record<string, ScriptedBattle> = {
     canFlee: false,
     intro: '星穹神殿的盡頭，巨影睜開了眼：「……你們，也來取光嗎？」',
     onWin: 'flag:ended;stage:11',
-    bg: 'sky'
+    bg: 'sky',
+    phases: [
+      {
+        hpBelow: 0.6,
+        message: '「你們的光，就借我吧。」星之霸主鱗片泛起星輝——攻擊力提升了！',
+        enrage: [
+          { stat: 'atk', amount: 0.3, turns: 5 },
+          { stat: 'mag', amount: 0.3, turns: 5 }
+        ]
+      },
+      {
+        hpBelow: 0.3,
+        message: '「……還不夠。」星穹碎片凝聚成形，兩道身影自光中降下！',
+        summon: [
+          { species: 'starling', level: 28 },
+          { species: 'luminox', level: 28 }
+        ]
+      }
+    ]
+  },
+
+  // ── 終盤：深淵迴廊（結局後解鎖） ──
+  abyssknight: {
+    id: 'abyssknight',
+    enemies: [
+      { species: 'abyssknight', level: 34 },
+      { species: 'shadehound', level: 32 }
+    ],
+    boss: true,
+    canFlee: false,
+    intro: '漆黑的甲冑在迴廊口轉過身——「回頭吧。這裡沒有你想找的光。」',
+    onWin: 'flag:abyss_enter;stage:12',
+    bg: 'abyss',
+    phases: [
+      {
+        hpBelow: 0.5,
+        message: '甲冑的縫隙流出紫色霧氣——「那就一起留下吧。」一隻幽蛛自影中爬出！',
+        summon: [{ species: 'gloomweaver', level: 32 }]
+      }
+    ]
+  },
+  nullbeast: {
+    id: 'nullbeast',
+    enemies: [{ species: 'nullbeast', level: 40 }],
+    boss: true,
+    canFlee: false,
+    intro: '迴廊的中樞，巨大的獸影吞下了所有的回音。',
+    onWin: 'flag:abyss_mid;stage:13',
+    bg: 'abyss',
+    phases: [
+      {
+        hpBelow: 0.7,
+        message: '虛無獸發出無聲的咆哮，四周的光被吸了進去——狂暴化了！',
+        enrage: [{ stat: 'atk', amount: 0.35, turns: 99 }]
+      },
+      {
+        hpBelow: 0.35,
+        message: '虛無獸把自己撕成兩半——兩道影子從裂口爬出！',
+        summon: [
+          { species: 'shadehound', level: 38 },
+          { species: 'gloomweaver', level: 38 }
+        ]
+      },
+      {
+        hpBelow: 0.15,
+        message: '「……不是光……是洞。」虛無獸把週遭的一切吞回自己體內。',
+        healRatio: 0.15
+      }
+    ]
+  },
+  abysssovereign: {
+    id: 'abysssovereign',
+    enemies: [
+      { species: 'abysssovereign', level: 50 },
+      { species: 'voiddragon', level: 42 }
+    ],
+    boss: true,
+    canFlee: false,
+    intro: '最深處，那個存在張開了——光、聲音，連名字都被收了進去。',
+    onWin: 'flag:true_ended;stage:14',
+    bg: 'abyss',
+    phases: [
+      {
+        hpBelow: 0.75,
+        message: '深淵主宰的輪廓擴散開來——「你們帶來的光，剛好夠暖。」',
+        enrage: [{ stat: 'atk', amount: 0.25, turns: 99 }]
+      },
+      {
+        hpBelow: 0.5,
+        message: '兩道星燼被拉了進來，成為牠的一部分。',
+        summon: [
+          { species: 'starwisp', level: 40 },
+          { species: 'frostlich', level: 40 }
+        ],
+        healRatio: 0.08
+      },
+      {
+        hpBelow: 0.25,
+        message: '「那就……一起變成洞吧。」主宰的傷口癒合，並張開了最大的爪。',
+        healRatio: 0.2,
+        enrage: [{ stat: 'mag', amount: 0.4, turns: 99 }]
+      }
+    ]
   }
 };
+
+/** 深淵迴廊的頭目順序（依劇情推進） */
+export const ABYSS_BOSSES: { flag: string; stage: number; map: string; battle: string; need: string }[] = [
+  { flag: 'abyss_enter', stage: 12, map: 'abyssgate', battle: 'abyssknight', need: '' },
+  { flag: 'abyss_mid', stage: 13, map: 'abysshall', battle: 'nullbeast', need: 'flag:abyss_enter' },
+  { flag: 'true_ended', stage: 14, map: 'abyssdeep', battle: 'abysssovereign', need: 'flag:abyss_mid' }
+];
 
 export const SHOP_STOCK = [
   'sealstone',
@@ -617,5 +779,13 @@ export const SHOP_STOCK = [
   'phoenix',
   'smoke',
   'bomb',
-  'warpwing'
+  'warpwing',
+  'elixir',
+  'bomb_hi',
+  'stone_purify',
+  'stone_rend',
+  'stone_icebind',
+  'stone_regen',
+  'stone_warcry',
+  'stone_aegis'
 ];

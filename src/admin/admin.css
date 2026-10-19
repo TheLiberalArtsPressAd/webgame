@@ -161,13 +161,17 @@ p {
 .nav-text {
   font-size: 13px;
   font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .nav-hint {
-  font-size: 9px;
-  letter-spacing: 0.06em;
+  font-size: 8px;
+  letter-spacing: 0.04em;
   color: #5c6a82;
   text-transform: uppercase;
+  white-space: nowrap;
 }
 
 .sidebar-foot {
@@ -290,6 +294,7 @@ p {
   cursor: pointer;
   text-decoration: none;
   white-space: nowrap;
+  width: fit-content;
   transition: 0.15s ease;
 }
 
@@ -402,6 +407,10 @@ p {
   font-size: 10px;
   color: #6f7e96;
   line-height: 1.45;
+}
+
+.field > .badge {
+  align-self: flex-start;
 }
 
 .checkbox {
@@ -549,6 +558,7 @@ p {
   font-weight: 600;
   letter-spacing: 0.04em;
   white-space: nowrap;
+  width: fit-content;
 }
 
 .badge.ok {
@@ -1206,12 +1216,15 @@ p {
   }
 
   .nav {
+    flex: none;
     flex-direction: row;
     gap: 2px;
   }
 
   .nav-item {
+    flex: 0 0 auto;
     grid-template-columns: auto auto;
+    width: auto;
     padding: 8px 10px;
   }
 

@@ -16,8 +16,9 @@ import { npcDialogue, questHint, SCRIPTED_BATTLES, type BattleBg, type StoryLine
 import { session, type GameState } from '../game/session';
 import { addItem, fullRestore, giveExp, MAX_PARTY } from '../game/state';
 import { createUnit, ITEMS, itemName, SPECIES } from '../game/data';
+import { questOnArrive, activeQuestSummary } from '../game/quests';
 import { BattleScene } from './battleScene';
-import { MenuScene, ShopScene } from './menus';
+import { MenuScene, QuestScene, ShopScene } from './menus';
 import type { Unit } from '../game/types';
 
 interface Toast {
@@ -59,6 +60,10 @@ export function bgForMap(mapId: string, indoor: boolean): BattleBg {
     case 'skyport':
     case 'skytemple':
       return 'sky';
+    case 'abyssgate':
+    case 'abysshall':
+    case 'abyssdeep':
+      return 'abyss';
     default:
       return indoor ? 'cave' : 'field';
   }
@@ -126,6 +131,7 @@ export class FieldScene implements Scene {
     const c = cameraFor(this.px, this.py, VIEW_W, VIEW_H);
     this.cam = c;
     this.clampCamera();
+    questOnArrive(this.s, this.map.id);
   }
 
   private walkableAt(x: number, y: number): boolean {
@@ -264,7 +270,9 @@ export class FieldScene implements Scene {
     // 傳送點
     const portal = this.map.portals.find((p) => p.x === this.tx && p.y === this.ty);
     if (portal) {
-      if (this.arrivedAt && this.arrivedAt.x === this.tx && this.arrivedAt.y === this.ty) {
+      if (portal.requires && !this.s.flags[portal.requires]) {
+        this.toast('這裡還沒有任何反應……', '#a8b6cc');
+      } else if (this.arrivedAt && this.arrivedAt.x === this.tx && this.arrivedAt.y === this.ty) {
         // 剛從這個傳送點抵達，先離開才會再次觸發
         this.arrivedAt = null;
       } else {
@@ -290,24 +298,28 @@ export class FieldScene implements Scene {
   }
 
   travel(to: string, x: number, y: number, dir: number) {
+    // dir 只作為「抵達後面向」的提示，正規化為 4 個基本面向
+    const facing = ((Math.round(dir) % 4) + 4) % 4;
     this.s.mapId = to;
     this.s.px = x;
     this.s.py = y;
-    this.s.facing = dir;
+    this.s.facing = facing;
     this.encounterGrace = 3;
     this.mapId = to;
     this.map = MAPS[to] ?? MAPS['village'];
     this.grid = MAP_GRIDS[this.map.id];
+    if (this.map.town) this.s.lastTown = this.map.id;
     this.px = x;
     this.py = y;
     this.tx = x;
     this.ty = y;
-    this.facing = dir;
+    this.facing = facing;
     this.moving = false;
     this.arrivedAt = { x, y };
     const c = cameraFor(x, y, VIEW_W, VIEW_H);
     this.cam = c;
     this.clampCamera();
+    questOnArrive(this.s, to);
     this.toast(`抵達 ${this.map.name}`, '#9fe0ff');
   }
 
@@ -323,12 +335,14 @@ export class FieldScene implements Scene {
   private frontTile(): { x: number; y: number } {
     const cx = Math.round(this.px);
     const cy = Math.round(this.py);
-    const d = [
+    // 只有 4 個基本面向；facing 可能來自傳送點的 dir（任意整數），一律正規化避免越界
+    const FRONT = [
       { x: 1, y: 1 },
       { x: -1, y: 1 },
       { x: -1, y: -1 },
       { x: 1, y: -1 }
-    ][this.facing];
+    ];
+    const d = FRONT[((Math.round(this.facing) % 4) + 4) % 4] ?? FRONT[0];
     return { x: cx + d.x, y: cy + d.y };
   }
 
@@ -362,7 +376,12 @@ export class FieldScene implements Scene {
     }
     for (const t of order) {
       const prop = this.propAt(t.x, t.y);
-      if (prop && prop.text) {
+      if (!prop) continue;
+      if (prop.kind === 'board') {
+        scenes.push(new QuestScene());
+        return true;
+      }
+      if (prop.text) {
         this.startDialog({ lines: [{ who: '告示牌', text: prop.text }] }, '告示牌');
         return true;
       }
@@ -498,7 +517,9 @@ export class FieldScene implements Scene {
   private startScriptedBattle(id: string) {
     const def = SCRIPTED_BATTLES[id];
     if (!def) return;
-    const enemies = def.enemies.map((e) => createUnit(e.species, e.level, 'enemy'));
+    const enemies = def.enemies
+      .filter((e) => SPECIES[e.species])
+      .map((e) => createUnit(e.species, e.level, 'enemy'));
     scenes.push(
       new BattleScene({
         enemies,
@@ -506,6 +527,7 @@ export class FieldScene implements Scene {
         boss: def.boss,
         canFlee: def.canFlee,
         intro: def.intro,
+        phases: def.phases,
         onEnd: (result) => {
           if (result === 'win') {
             if (def.onWin) this.runAction(def.onWin);
@@ -519,6 +541,14 @@ export class FieldScene implements Scene {
   }
 
   private maybeEnding() {
+    if (this.s.flags['true_ended'] && !this.s.flags['true_ending_shown']) {
+      this.s.flags['true_ending_shown'] = true;
+      void import('./menus').then((m) => {
+        m.resetStars();
+        scenes.set(new m.EndingScene(m.TRUE_ENDING_LINES));
+      });
+      return;
+    }
     if (this.s.flags['ended'] && !this.s.flags['ending_shown']) {
       this.s.flags['ending_shown'] = true;
       void import('./menus').then((m) => {
@@ -845,6 +875,28 @@ export class FieldScene implements Scene {
         ctx.fillRect(sx - 11, sy - 23, 15, 2);
         break;
       }
+      case 'board': {
+        // 委託板：兩根木柱 + 板面 + 紙張
+        ctx.fillStyle = '#5c4128';
+        ctx.fillRect(sx - 17, sy - 34, 4, 34);
+        ctx.fillRect(sx + 13, sy - 34, 4, 34);
+        ctx.fillStyle = '#a8763f';
+        ctx.fillRect(sx - 22, sy - 46, 44, 26);
+        ctx.strokeStyle = '#6d4a28';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(sx - 22, sy - 46, 44, 26);
+        // 釘在板上的委託單
+        ctx.fillStyle = '#f3ecd8';
+        ctx.fillRect(sx - 17, sy - 42, 12, 9);
+        ctx.fillRect(sx - 2, sy - 43, 12, 10);
+        ctx.fillRect(sx + 6, sy - 36, 12, 12);
+        ctx.fillStyle = 'rgba(120,100,70,0.8)';
+        ctx.fillRect(sx - 15, sy - 39, 8, 1.5);
+        ctx.fillRect(sx - 15, sy - 36, 6, 1.5);
+        ctx.fillRect(sx, sy - 40, 8, 1.5);
+        ctx.fillRect(sx + 8, sy - 32, 8, 1.5);
+        break;
+      }
       case 'well': {
         ctx.fillStyle = '#7a7d86';
         ctx.beginPath();
@@ -971,6 +1023,24 @@ export class FieldScene implements Scene {
     panel(ctx, 10, 46, 262, 22 + lines.length * 16, { alpha: 0.8, radius: 6 });
     label(ctx, '◆ 現在目標', 20, 63, { size: 11, color: '#8ed0ff', bold: true });
     lines.forEach((l, i) => label(ctx, l, 20, 80 + i * 16, { size: 12, color: '#d8e4ff' }));
+
+    // 進行中的委託
+    const actives = activeQuestSummary(this.s);
+    if (actives.length > 0) {
+      const ay = 46 + 22 + lines.length * 16 + 6;
+      const shown = actives.slice(0, 4);
+      panel(ctx, 10, ay, 262, 20 + shown.length * 16, { alpha: 0.8, radius: 6 });
+      label(ctx, '◆ 委託', 20, ay + 15, { size: 11, color: '#ffd76a', bold: true });
+      shown.forEach((l, i) =>
+        label(ctx, l, 20, ay + 32 + i * 16, { size: 12, color: '#e8eefc' })
+      );
+      if (actives.length > shown.length) {
+        label(ctx, `…還有 ${actives.length - shown.length} 件`, 20, ay + 32 + shown.length * 16, {
+          size: 11,
+          color: '#a8b6cc'
+        });
+      }
+    }
 
     // 隊伍
     const py = VIEW_H - 26 - this.s.party.length * 26;

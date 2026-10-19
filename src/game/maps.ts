@@ -65,12 +65,14 @@ export interface PortalDef {
   tx: number;
   ty: number;
   dir?: number;
+  /** 需要完成的 flag（例如結局後才開放） */
+  requires?: string;
 }
 
 export interface PropDef {
   x: number;
   y: number;
-  kind: 'sign' | 'well' | 'crystal' | 'chest' | 'torch' | 'boat';
+  kind: 'sign' | 'well' | 'crystal' | 'chest' | 'torch' | 'boat' | 'board';
   text?: string;
 }
 
@@ -192,7 +194,8 @@ export const MAPS: Record<string, MapDef> = {
     portals: [{ x: 9, y: 14, to: 'field', tx: 11, ty: 17, dir: 2 }],
     props: [
       { x: 6, y: 8, kind: 'well' },
-      { x: 12, y: 13, kind: 'sign', text: '↓ 南：微風草原' }
+      { x: 12, y: 13, kind: 'sign', text: '↓ 南：微風草原' },
+      { x: 15, y: 8, kind: 'board' }
     ],
     triggers: []
   },
@@ -235,7 +238,8 @@ export const MAPS: Record<string, MapDef> = {
         { species: 'glimmermouse', min: 1, max: 3, weight: 25 },
         { species: 'galehawk', min: 2, max: 4, weight: 20 },
         { species: 'dewfrog', min: 2, max: 4, weight: 15 },
-        { species: 'mossbear', min: 3, max: 5, weight: 10 }
+        { species: 'mossbear', min: 3, max: 5, weight: 10 },
+        { species: 'shadowwolf', min: 3, max: 6, weight: 12 }
       ]
     },
     npcs: [
@@ -308,7 +312,8 @@ export const MAPS: Record<string, MapDef> = {
         { species: 'magmaboar', min: 4, max: 7, weight: 25 },
         { species: 'thunderbird', min: 4, max: 7, weight: 25 },
         { species: 'frostdeer', min: 5, max: 8, weight: 12 },
-        { species: 'flamefox', min: 5, max: 8, weight: 8 }
+        { species: 'flamefox', min: 5, max: 8, weight: 8 },
+        { species: 'pebblet', min: 4, max: 7, weight: 14 }
       ]
     },
     npcs: [
@@ -370,7 +375,9 @@ export const MAPS: Record<string, MapDef> = {
         { species: 'galehawk', min: 7, max: 10, weight: 24 },
         { species: 'magmaboar', min: 8, max: 11, weight: 20 },
         { species: 'mossbear', min: 8, max: 11, weight: 18 },
-        { species: 'flamefox', min: 9, max: 12, weight: 12 }
+        { species: 'flamefox', min: 9, max: 12, weight: 12 },
+        { species: 'zephyrling', min: 7, max: 11, weight: 14 },
+        { species: 'shadowwolf', min: 9, max: 12, weight: 10 }
       ]
     },
     npcs: [
@@ -463,7 +470,8 @@ export const MAPS: Record<string, MapDef> = {
     portals: [{ x: 10, y: 0, to: 'road', tx: 12, ty: 15, dir: 0 }],
     props: [
       { x: 8, y: 5, kind: 'boat' },
-      { x: 12, y: 1, kind: 'sign', text: '↑ 北：暮色古道' }
+      { x: 12, y: 1, kind: 'sign', text: '↑ 北：暮色古道' },
+      { x: 16, y: 1, kind: 'board' }
     ],
     triggers: [{ x: 10, y: 6, flag: 'ch5_final', action: 'battle:final' }]
   },
@@ -535,7 +543,8 @@ export const MAPS: Record<string, MapDef> = {
     portals: [{ x: 10, y: 0, to: 'snowfield', tx: 11, ty: 17, dir: 0 }],
     props: [
       { x: 9, y: 5, kind: 'boat' },
-      { x: 12, y: 1, kind: 'sign', text: '↑ 北：霜牙雪原' }
+      { x: 12, y: 1, kind: 'sign', text: '↑ 北：霜牙雪原' },
+      { x: 16, y: 1, kind: 'board' }
     ],
     triggers: []
   },
@@ -644,7 +653,9 @@ export const MAPS: Record<string, MapDef> = {
         { species: 'frostfang', min: 12, max: 15, weight: 24 },
         { species: 'frostdeer', min: 13, max: 16, weight: 20 },
         { species: 'snowpup', min: 12, max: 14, weight: 16 },
-        { species: 'frostwyrm', min: 16, max: 18, weight: 4 }
+        { species: 'frostwyrm', min: 16, max: 18, weight: 4 },
+        { species: 'bubbletad', min: 12, max: 15, weight: 14 },
+        { species: 'leviathan', min: 17, max: 19, weight: 3 }
       ]
     },
     npcs: [
@@ -709,7 +720,9 @@ export const MAPS: Record<string, MapDef> = {
         { species: 'miragecat', min: 16, max: 19, weight: 20 },
         { species: 'sandworm', min: 16, max: 19, weight: 18 },
         { species: 'cinderimp', min: 15, max: 18, weight: 20 },
-        { species: 'crystalspine', min: 17, max: 20, weight: 16 }
+        { species: 'crystalspine', min: 17, max: 20, weight: 16 },
+        { species: 'stormroc', min: 16, max: 19, weight: 12 },
+        { species: 'titanrock', min: 17, max: 20, weight: 10 }
       ]
     },
     npcs: [
@@ -766,7 +779,9 @@ export const MAPS: Record<string, MapDef> = {
         { species: 'magmaboar', min: 18, max: 21, weight: 22 },
         { species: 'flamefox', min: 19, max: 22, weight: 20 },
         { species: 'lavadrake', min: 20, max: 23, weight: 20 },
-        { species: 'crystalspine', min: 19, max: 22, weight: 14 }
+        { species: 'crystalspine', min: 19, max: 22, weight: 14 },
+        { species: 'emberpup', min: 18, max: 21, weight: 16 },
+        { species: 'phoenixbird', min: 20, max: 23, weight: 5 }
       ]
     },
     npcs: [],
@@ -810,7 +825,8 @@ export const MAPS: Record<string, MapDef> = {
     ],
     openings: [
       { x: 11, y: 14 },
-      { x: 11, y: 0 }
+      { x: 11, y: 0 },
+      { x: 0, y: 7 }
     ],
     npcs: [
       {
@@ -836,13 +852,26 @@ export const MAPS: Record<string, MapDef> = {
         name: '醫者 芙蕾',
         dir: 0,
         color: { skin: '#f6d2b0', hair: '#e8c86a', cloth: '#e8e4f0', cloth2: '#8fa8c8' }
+      },
+      {
+        id: 'sky_gate',
+        x: 2,
+        y: 7,
+        name: '守望者 卡蘭',
+        dir: 3,
+        color: { skin: '#d8b090', hair: '#3a3a48', cloth: '#4a4a62', cloth2: '#2a2a3a' }
       }
     ],
     portals: [
       { x: 11, y: 14, to: 'desert', tx: 11, ty: 0, dir: 2 },
-      { x: 11, y: 0, to: 'skytemple', tx: 11, ty: 15, dir: 0 }
+      { x: 11, y: 0, to: 'skytemple', tx: 11, ty: 15, dir: 0 },
+      { x: 0, y: 7, to: 'abyssgate', tx: 11, ty: 13, dir: 3, requires: 'ended' }
     ],
-    props: [{ x: 12, y: 1, kind: 'sign', text: '↑ 北：星穹神殿　↓ 南：流金沙原' }],
+    props: [
+      { x: 12, y: 1, kind: 'sign', text: '↑ 北：星穹神殿　↓ 南：流金沙原' },
+      { x: 1, y: 6, kind: 'sign', text: '← 西：深淵迴廊（需先讓星塵回歸）' },
+      { x: 6, y: 9, kind: 'board' }
+    ],
     triggers: []
   },
 
@@ -874,6 +903,17 @@ export const MAPS: Record<string, MapDef> = {
       'XXXXXXXXXXXXXXXXXXXXXX'
     ],
     openings: [{ x: 11, y: 15 }],
+    encounters: {
+      rate: 0.1,
+      table: [
+        { species: 'starling', min: 22, max: 26, weight: 24 },
+        { species: 'luminox', min: 23, max: 27, weight: 18 },
+        { species: 'stormroc', min: 22, max: 26, weight: 18 },
+        { species: 'cloudserpent', min: 24, max: 28, weight: 16 },
+        { species: 'voidmoth', min: 23, max: 27, weight: 14 },
+        { species: 'skywhale', min: 25, max: 29, weight: 8 }
+      ]
+    },
     npcs: [],
     portals: [{ x: 11, y: 15, to: 'skyport', tx: 11, ty: 0, dir: 0 }],
     props: [
@@ -883,6 +923,162 @@ export const MAPS: Record<string, MapDef> = {
       { x: 17, y: 4, kind: 'torch' }
     ],
     triggers: [{ x: 10, y: 6, flag: 'ch4_final', action: 'battle:starsovereign' }]
+  },
+
+  // ───────────── 終盤：深淵迴廊 ─────────────
+  abyssgate: {
+    id: 'abyssgate',
+    name: '深淵迴廊・入口',
+    w: 22,
+    h: 15,
+    border: 'X',
+    floorChar: 'C',
+    indoor: true,
+    tint: 'rgba(30,10,50,0.5)',
+    rows: [
+      'XXXXXXXXXXXXXXXXXXXXXX',
+      'XCCCCCCCCCCCCCCCCCCCCX',
+      'XCCRCCCCCCCCCCCCCCRCCX',
+      'XCCRCCCCCCCCCCCCCCRCCX',
+      'XCCCCCCCCCCCCCCCCCCCCX',
+      'XCCCCCCRRCCCCCCRRCCCCX',
+      'XCCCCCCCCCCCCCCCCCCCCX',
+      'XCCRRCCCCCCCCCCCCRRCCX',
+      'XCCRRCCCCCCCCCCCCRRCCX',
+      'XCCCCCCCCCCCCCCCCCCCCX',
+      'XCCCCCCCCCCCCCCCCCCCCX',
+      'XCCCRCCCCCCCCCCCCRCCCX',
+      'XCCCRCCCCCCCCCCCCRCCCX',
+      'XCCCCCCCCCCCCCCCCCCCCX',
+      'XXXXXXXXXXXXCXXXXXXXXX'
+    ],
+    openings: [
+      { x: 11, y: 14 },
+      { x: 11, y: 0 }
+    ],
+    npcs: [],
+    portals: [
+      { x: 11, y: 14, to: 'skyport', tx: 1, ty: 7, dir: 3 },
+      { x: 11, y: 0, to: 'abysshall', tx: 11, ty: 14, dir: 1 }
+    ],
+    props: [
+      { x: 4, y: 3, kind: 'crystal' },
+      { x: 17, y: 3, kind: 'crystal' },
+      { x: 4, y: 9, kind: 'torch' },
+      { x: 17, y: 9, kind: 'torch' },
+      { x: 13, y: 2, kind: 'sign', text: '迴廊深處沒有光。這裡的記號，是回來的人留下的。' }
+    ],
+    triggers: [{ x: 11, y: 6, flag: 'abyss_f1', action: 'battle:abyssknight' }],
+    encounters: {
+      rate: 0.06,
+      table: [
+        { species: 'shadehound', min: 31, max: 35, weight: 4 },
+        { species: 'gloomweaver', min: 31, max: 35, weight: 3 }
+      ]
+    }
+  },
+
+  abysshall: {
+    id: 'abysshall',
+    name: '深淵迴廊・中樞',
+    w: 22,
+    h: 16,
+    border: 'X',
+    floorChar: 'C',
+    indoor: true,
+    tint: 'rgba(36,8,58,0.56)',
+    rows: [
+      'XXXXXXXXXXXXXXXXXXXXXX',
+      'XCCCCCCCCCCCCCCCCCCCCX',
+      'XCCCCRRCCCCCCCCRRCCCCX',
+      'XCCCCRRCCCCCCCCRRCCCCX',
+      'XCCCCCCCCCCCCCCCCCCCCX',
+      'XCCCCCCCCCRRCCCCCCCCCX',
+      'XCCCCCCCRRRRRRCCCCCCCX',
+      'XCCCCCCCCCRRCCCCCCCCCX',
+      'XCCCCCCCCCCCCCCCCCCCCX',
+      'XCCRRCCCCCCCCCCCCRRCCX',
+      'XCCRRCCCCCCCCCCCCRRCCX',
+      'XCCCCCCCCCCCCCCCCCCCCX',
+      'XCCCCCCRRCCCCRRCCCCCCX',
+      'XCCCCCCRRCCCCRRCCCCCCX',
+      'XCCCCCCCCCCCCCCCCCCCCX',
+      'XXXXXXXXXXXXCXXXXXXXXX'
+    ],
+    openings: [
+      { x: 11, y: 15 },
+      { x: 11, y: 0 }
+    ],
+    npcs: [],
+    portals: [
+      { x: 11, y: 15, to: 'abyssgate', tx: 11, ty: 1, dir: 2 },
+      { x: 11, y: 0, to: 'abyssdeep', tx: 11, ty: 14, dir: 1 }
+    ],
+    props: [
+      { x: 3, y: 6, kind: 'crystal' },
+      { x: 18, y: 6, kind: 'crystal' },
+      { x: 3, y: 12, kind: 'torch' },
+      { x: 18, y: 12, kind: 'torch' }
+    ],
+    triggers: [{ x: 11, y: 12, flag: 'abyss_f2', action: 'battle:nullbeast' }],
+    encounters: {
+      rate: 0.07,
+      table: [
+        { species: 'gloomweaver', min: 36, max: 40, weight: 3 },
+        { species: 'frostlich', min: 36, max: 40, weight: 3 },
+        { species: 'abyssknight', min: 37, max: 41, weight: 2 },
+        { species: 'starwisp', min: 36, max: 40, weight: 2 }
+      ]
+    }
+  },
+
+  abyssdeep: {
+    id: 'abyssdeep',
+    name: '深淵迴廊・最深處',
+    w: 22,
+    h: 16,
+    border: 'X',
+    floorChar: 'C',
+    indoor: true,
+    tint: 'rgba(20,4,40,0.66)',
+    rows: [
+      'XXXXXXXXXXXXXXXXXXXXXX',
+      'XCCCCCCCCCCCCCCCCCCCCX',
+      'XCCCCCCCCCCCCCCCCCCCCX',
+      'XCCCRRCCCCCCCCCCRRCCCX',
+      'XCCCRRCCCCCCCCCCRRCCCX',
+      'XCCCCCCCCCCCCCCCCCCCCX',
+      'XCCCCCCCCCRRCCCCCCCCCX',
+      'XCCCCCCCRRRRRRCCCCCCCX',
+      'XCCCCCCCCCRRCCCCCCCCCX',
+      'XCCCCCCCCCCCCCCCCCCCCX',
+      'XCCCRRCCCCCCCCCCRRCCCX',
+      'XCCCRRCCCCCCCCCCRRCCCX',
+      'XCCCCCCCCCCCCCCCCCCCCX',
+      'XCCCCCCCCCCCCCCCCCCCCX',
+      'XCCCCCCCCCCCCCCCCCCCCX',
+      'XXXXXXXXXXXXCXXXXXXXXX'
+    ],
+    openings: [{ x: 11, y: 15 }],
+    npcs: [],
+    portals: [{ x: 11, y: 15, to: 'abysshall', tx: 11, ty: 1, dir: 2 }],
+    props: [
+      { x: 3, y: 8, kind: 'torch' },
+      { x: 18, y: 8, kind: 'torch' },
+      { x: 8, y: 12, kind: 'crystal' },
+      { x: 13, y: 12, kind: 'crystal' },
+      { x: 11, y: 12, kind: 'sign', text: '「你們帶來的光，剛好夠暖。」' }
+    ],
+    triggers: [{ x: 11, y: 9, flag: 'abyss_f3', action: 'battle:abysssovereign' }],
+    encounters: {
+      rate: 0.08,
+      table: [
+        { species: 'frostlich', min: 40, max: 44, weight: 3 },
+        { species: 'abyssknight', min: 41, max: 45, weight: 3 },
+        { species: 'voiddragon', min: 42, max: 46, weight: 1 },
+        { species: 'starwisp', min: 40, max: 44, weight: 2 }
+      ]
+    }
   }
 };
 

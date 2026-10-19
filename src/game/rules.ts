@@ -53,6 +53,12 @@ export interface Rules {
 
   /** 中毒每回合損失最大 HP 比例 */
   poisonRatio: number;
+  /** 流血每回合損失最大 HP 比例 */
+  bleedRatio: number;
+  /** 混亂時無法行動的機率 */
+  confuseChance: number;
+  /** 混亂時誤傷自己的機率（在無法行動之外） */
+  confuseSelfChance: number;
   /** 商店收購價倍率 */
   sellRatio: number;
   /** 載入存檔時，依目前種族數值重新計算能力 */
@@ -95,6 +101,9 @@ export const DEFAULT_RULES: Rules = {
   fleeMax: 0.95,
 
   poisonRatio: 0.06,
+  bleedRatio: 0.08,
+  confuseChance: 0.35,
+  confuseSelfChance: 0.5,
   sellRatio: 0.5,
   recalcOnLoad: true
 };

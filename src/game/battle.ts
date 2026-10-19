@@ -1,4 +1,4 @@
-import { AILMENT_NAME, SKILLS, SPECIES, elementMultiplier } from './data';
+import { AILMENT_NAME, SKILLS, SPECIES, elementMultiplier, fieldMultiplier } from './data';
 import { RULES } from './rules';
 import type { Ailment, Element, SkillDef, Stats, Unit } from './types';
 
@@ -19,18 +19,26 @@ export interface DamageResult {
 }
 
 /** 一般攻擊（skill = null）或技能攻擊的傷害計算 */
-export function calcDamage(attacker: Unit, defender: Unit, skill: SkillDef | null): DamageResult {
+export function calcDamage(
+  attacker: Unit,
+  defender: Unit,
+  skill: SkillDef | null,
+  fieldBg?: string
+): DamageResult {
   const power = skill ? skill.power : RULES.basicAttackPower;
   const useAtk = !skill || !!skill.physical;
   const a = useAtk ? effStat(attacker, 'atk') : effStat(attacker, 'mag');
   const d = effStat(defender, 'def');
   const element: Element = skill ? skill.element : attacker.element;
   const mult = elementMultiplier(element, defender.element);
+  // 場地效果加成
+  const field = fieldBg ? fieldMultiplier(fieldBg, element) : 1;
   const crit = Math.random() < RULES.critChance;
   let dmg =
     a *
     (1 + power / Math.max(1, RULES.damagePowerDivisor)) *
     mult *
+    field *
     (RULES.damageDefenseBase /
       (RULES.damageDefenseBase + d * RULES.damageDefenseScale));
   if (crit) dmg *= RULES.critMultiplier;
@@ -157,6 +165,12 @@ export function chooseAiAction(enemy: Unit, party: Unit[], allies: Unit[]): AiAc
     return { skill: reviveSkill, target: deadAlly, selfCast: false };
   }
 
+  // 增益：血量健康時偶爾先強化自己
+  const buffSkill = usable.find((s) => s.kind === 'buff');
+  if (buffSkill && enemy.buffs.length === 0 && Math.random() < 0.2) {
+    return { skill: buffSkill, target: enemy, selfCast: true };
+  }
+
   const attacks = usable.filter((s) => s.kind === 'attack');
   // 群體技：敵人數 >= 3 時提高使用意願
   const aoe = attacks.find((s) => s.target === 'allEnemy');
@@ -235,30 +249,59 @@ export function ailmentLabel(a: Ailment): string {
   return AILMENT_NAME[a] ?? a;
 }
 
-/** 回合結束：毒傷害與狀態回合遞減。回傳中毒傷害紀錄 */
-export function tickAilments(units: Unit[]): { unit: Unit; dmg: number }[] {
-  const poison: { unit: Unit; dmg: number }[] = [];
+/** 回合結束：毒 / 流血傷害與狀態回合遞減。回傳持續傷害紀錄 */
+export function tickAilments(units: Unit[]): { unit: Unit; dmg: number; ailment: Ailment }[] {
+  const dots: { unit: Unit; dmg: number; ailment: Ailment }[] = [];
   for (const u of units) {
     if (u.hp <= 0) {
       clearAilment(u);
       continue;
     }
     if (u.ailment) {
-      if (u.ailment === 'poison') {
-        const dmg = Math.max(1, Math.floor(u.max.hp * RULES.poisonRatio));
+      if (u.ailment === 'poison' || u.ailment === 'bleed') {
+        const ratio = u.ailment === 'poison' ? RULES.poisonRatio : RULES.bleedRatio;
+        const dmg = Math.max(1, Math.floor(u.max.hp * ratio));
         u.hp = Math.max(0, u.hp - dmg);
-        poison.push({ unit: u, dmg });
+        dots.push({ unit: u, dmg, ailment: u.ailment });
       }
       u.ailmentTurns = (u.ailmentTurns ?? 1) - 1;
       if (u.ailmentTurns <= 0) clearAilment(u);
     }
   }
-  return poison;
+  return dots;
 }
 
-/** 檢查單位是否能行動：sleep 必定無法、paralysis 機率無法 */
-export function actionBlocked(u: Unit): 'sleep' | 'paralysis' | null {
-  if (u.ailment === 'sleep') return 'sleep';
-  if (u.ailment === 'paralysis' && Math.random() < 0.5) return 'paralysis';
+/**
+ * 受到傷害後的反應：冰凍會碎裂解除、睡眠會被驚醒、混亂有機會清醒。
+ * 回傳被解除的狀態（若有）。
+ */
+export function onDamaged(target: Unit): Ailment | null {
+  if (target.hp <= 0) {
+    clearAilment(target);
+    return null;
+  }
+  const a = target.ailment;
+  if (a === 'freeze' || a === 'sleep') {
+    clearAilment(target);
+    return a;
+  }
+  if (a === 'confuse' && Math.random() < 0.5) {
+    clearAilment(target);
+    return a;
+  }
   return null;
+}
+
+/** 檢查單位是否能行動：sleep / freeze 必定無法、paralysis / confuse 機率無法 */
+export function actionBlocked(u: Unit): 'sleep' | 'freeze' | 'paralysis' | 'confuse' | null {
+  if (u.ailment === 'sleep') return 'sleep';
+  if (u.ailment === 'freeze') return 'freeze';
+  if (u.ailment === 'paralysis' && Math.random() < 0.5) return 'paralysis';
+  if (u.ailment === 'confuse' && Math.random() < RULES.confuseChance) return 'confuse';
+  return null;
+}
+
+/** 混亂時是否會誤傷自己 */
+export function confusionSelfHit(): boolean {
+  return Math.random() < RULES.confuseSelfChance;
 }

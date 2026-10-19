@@ -16,6 +16,18 @@ import {
   saveGame
 } from '../game/state';
 import { SHOP_STOCK, questHint } from '../game/story';
+import {
+  QUESTS,
+  abandonQuest,
+  canTake,
+  claimQuest,
+  isComplete,
+  isFinished,
+  isTaken,
+  questProgress,
+  takeQuest,
+  type QuestDef
+} from '../game/quests';
 import { RULES } from '../game/rules';
 import type { Unit } from '../game/types';
 
@@ -391,6 +403,33 @@ export class MenuScene implements Scene {
         target.ailment = undefined;
         target.ailmentTurns = 0;
         this.flash(`${target.name} 的${name}被解除了。`);
+        break;
+      }
+      case 'healAll': {
+        let total = 0;
+        for (const u of session.state.party) {
+          const amount = Math.min(def.effect.power, u.max.hp - u.hp);
+          u.hp += amount;
+          total += amount;
+        }
+        this.flash(`全隊回復了共 ${total} HP。`);
+        break;
+      }
+      case 'teach': {
+        const skillId = def.effect.skill;
+        const sk = SKILLS[skillId];
+        if (!sk) {
+          addItem(session.state, id, 1);
+          this.flash('技能石的內容已損毀。');
+          return;
+        }
+        if (target.skills.includes(skillId)) {
+          addItem(session.state, id, 1);
+          this.flash(`${target.name} 已經學會${sk.name}了。`);
+          return;
+        }
+        target.skills.push(skillId);
+        this.flash(`${target.name} 學會了「${sk.name}」！`);
         break;
       }
       case 'warp': {
@@ -1005,6 +1044,208 @@ export class ShopScene implements Scene {
 }
 
 // ─────────────────────────────────────────────────────────────
+// 委託板
+// ─────────────────────────────────────────────────────────────
+export class QuestScene implements Scene {
+  time = 0;
+  idx = 0;
+  message = '';
+  messageT = 0;
+  /** 目前捲動到清單的第幾項 */
+  scroll = 0;
+  static readonly VISIBLE = 7;
+
+  /** 進行中優先，其次可接取 */
+  private list(): QuestDef[] {
+    const s = session.state;
+    const taken = QUESTS.filter((q) => isTaken(s, q.id));
+    const avail = QUESTS.filter((q) => canTake(s, q));
+    return [...taken, ...avail];
+  }
+
+  update(dt: number) {
+    this.time += dt;
+    if (this.messageT > 0) this.messageT -= dt;
+
+    const list = this.list();
+    if (list.length === 0) {
+      if (input.consume('escape', 'space', 'enter')) scenes.pop();
+      return;
+    }
+    this.idx = Math.max(0, Math.min(this.idx, list.length - 1));
+
+    if (input.nav('arrowup', dt) || input.nav('w', dt)) this.idx = (this.idx - 1 + list.length) % list.length;
+    if (input.nav('arrowdown', dt) || input.nav('s', dt)) this.idx = (this.idx + 1) % list.length;
+
+    // 捲動視窗
+    const v = QuestScene.VISIBLE;
+    if (this.idx < this.scroll) this.scroll = this.idx;
+    if (this.idx >= this.scroll + v) this.scroll = this.idx - v + 1;
+    this.scroll = Math.max(0, Math.min(this.scroll, Math.max(0, list.length - v)));
+
+    if (input.consume('escape')) {
+      scenes.pop();
+      return;
+    }
+
+    const s = session.state;
+    const q = list[this.idx];
+
+    if (input.consume('x')) {
+      if (isTaken(s, q.id)) {
+        abandonQuest(s, q.id);
+        this.flash(`放棄了委託「${q.title}」。`);
+        this.idx = 0;
+      }
+      return;
+    }
+
+    if (input.consume('space', 'enter')) {
+      if (isTaken(s, q.id)) {
+        if (isComplete(s, q)) {
+          const reward = claimQuest(s, q);
+          this.flash(reward ? `完成委託！獲得 ${reward}` : '無法回報。');
+          this.idx = 0;
+        } else {
+          this.flash(`進度 ${questProgress(s, q)}/${q.count}，尚未完成。`);
+        }
+      } else {
+        takeQuest(s, q);
+        this.flash(`接下了委託「${q.title}」。`);
+        this.idx = 0;
+      }
+    }
+  }
+
+  private flash(m: string) {
+    this.message = m;
+    this.messageT = 2.4;
+  }
+
+  render(ctx: CanvasRenderingContext2D) {
+    ctx.fillStyle = 'rgba(4,7,14,0.9)';
+    ctx.fillRect(0, 0, VIEW_W, VIEW_H);
+    const bx = 56;
+    const by = 28;
+    const bw = VIEW_W - 112;
+    const bh = VIEW_H - 56;
+    panel(ctx, bx, by, bw, bh, {
+      fill: 'rgba(10,16,30,0.97)',
+      border: 'rgba(150,190,255,0.55)',
+      radius: 12
+    });
+
+    const s = session.state;
+    label(ctx, '委託板', bx + 26, by + 40, { size: 22, color: '#ffe6a8', bold: true });
+    label(ctx, '↑↓ 選擇　空白鍵 接取／回報　X 放棄　Esc 離開', bx + bw - 26, by + 40, {
+      size: 11,
+      align: 'right',
+      color: 'rgba(150,170,210,0.85)'
+    });
+    label(ctx, `${s.gold} G`, bx + bw - 26, by + 64, { size: 16, align: 'right', color: '#ffd76a', bold: true });
+
+    const list = this.list();
+    const rowY = by + 96;
+    const lw = 470;
+
+    panel(ctx, bx + 22, rowY - 22, lw, bh - 140, { fill: 'rgba(8,13,26,0.85)', radius: 8 });
+
+    if (list.length === 0) {
+      label(ctx, '（目前沒有可接取的委託）', bx + 44, rowY + 10, { size: 13, color: '#8a98b0' });
+    }
+
+    const shown = list.slice(this.scroll, this.scroll + QuestScene.VISIBLE);
+    shown.forEach((q, i) => {
+      const realIdx = this.scroll + i;
+      const sel = realIdx === this.idx;
+      const y = rowY + i * 34;
+      const taken = isTaken(s, q.id);
+      const done = taken && isComplete(s, q);
+      const tag = !taken ? '可接取' : done ? '可回報' : '進行中';
+      const tagColor = !taken ? '#8ef0a8' : done ? '#ffd76a' : '#8ed0ff';
+
+      if (sel) {
+        panel(ctx, bx + 30, y - 18, lw - 16, 30, {
+          radius: 6,
+          fill: 'rgba(70,120,220,0.4)',
+          border: 'rgba(180,220,255,0.75)',
+          borderWidth: 1
+        });
+      }
+      label(ctx, `[${tag}]`, bx + 42, y, { size: 12, color: tagColor, bold: true });
+      label(ctx, q.title, bx + 106, y, { size: 15, color: sel ? '#ffffff' : '#dfe6f5', bold: sel });
+      label(ctx, taken ? `${questProgress(s, q)}/${q.count}` : `${q.count} 次`, bx + 30 + lw - 26, y, {
+        size: 13,
+        align: 'right',
+        color: isFinished(s, q) ? '#7a8496' : tagColor
+      });
+    });
+
+    if (list.length > QuestScene.VISIBLE) {
+      label(ctx, `${this.idx + 1} / ${list.length}`, bx + 30 + lw - 26, by + bh - 168, {
+        size: 11,
+        align: 'right',
+        color: '#8a98b0'
+      });
+    }
+
+    // 說明欄
+    const dx = bx + 22 + lw + 18;
+    const dw = bw - 44 - lw - 18;
+    panel(ctx, dx, rowY - 22, dw, bh - 140, { fill: 'rgba(8,13,26,0.85)', radius: 8 });
+    const cur = list[this.idx];
+    if (cur) {
+      label(ctx, cur.title, dx + 18, rowY + 6, { size: 18, color: '#ffe6a8', bold: true });
+      const kindText =
+        cur.kind === 'kill'
+          ? '討伐'
+          : cur.kind === 'catch'
+            ? '封印'
+            : cur.kind === 'deliver'
+              ? '繳交'
+              : '前往';
+      label(ctx, `類型：${kindText}　目標：${cur.count}`, dx + 18, rowY + 32, { size: 12, color: '#9fb0cc' });
+      const lines = wrapText(ctx, cur.desc, dw - 40, 13);
+      lines.forEach((l, i) => label(ctx, l, dx + 18, rowY + 56 + i * 21, { size: 13, color: '#c8d4e8' }));
+
+      const rewardParts: string[] = [];
+      if (cur.reward.gold) rewardParts.push(`${cur.reward.gold} G`);
+      for (const it of cur.reward.items ?? []) rewardParts.push(`${itemName(it.id)} ×${it.n}`);
+      if (cur.reward.exp) rewardParts.push(`${cur.reward.exp} 經驗`);
+      label(ctx, '報酬', dx + 18, rowY + 150, { size: 13, color: '#8ef0a8', bold: true });
+      const rlines = wrapText(ctx, rewardParts.join('、') || '（無）', dw - 40, 13);
+      rlines.forEach((l, i) => label(ctx, l, dx + 18, rowY + 172 + i * 21, { size: 13, color: '#e8eefc' }));
+
+      if (isTaken(s, cur.id)) {
+        label(ctx, `進度 ${questProgress(s, cur)} / ${cur.count}`, dx + 18, rowY + 240, {
+          size: 14,
+          color: isComplete(s, cur) ? '#ffd76a' : '#8ed0ff',
+          bold: true
+        });
+      }
+      if (isFinished(s, cur)) {
+        label(ctx, '（已完成的委託）', dx + 18, rowY + 262, { size: 12, color: '#7a8496' });
+      }
+    }
+
+    if (this.messageT > 0) {
+      label(ctx, this.message, VIEW_W / 2, VIEW_H - 56, {
+        size: 14,
+        align: 'center',
+        color: '#8ef0a8',
+        bold: true
+      });
+    }
+
+    label(ctx, '委託完成後記得回來回報。', VIEW_W / 2, VIEW_H - 28, {
+      size: 11,
+      align: 'center',
+      color: 'rgba(150,170,210,0.8)'
+    });
+  }
+}
+
+// ─────────────────────────────────────────────────────────────
 // 結局
 // ─────────────────────────────────────────────────────────────
 const ENDING_LINES = [
@@ -1027,21 +1268,46 @@ const ENDING_LINES = [
   '大陸上還有許多幻獸沒被認識。圖鑑裡空著的位置，就留給你吧。'
 ];
 
+export const TRUE_ENDING_LINES = [
+  '深淵主宰的最後一句話，沒有聲音，卻讓整條迴廊安靜了下來。',
+  '',
+  '「……原來，被照亮是這種感覺。」',
+  '',
+  '然後那個洞合了起來。被吞掉的星光，從最深處一路回到了天頂。',
+  '',
+  '星穹神殿的祭壇重新亮起，這次的光，比任何人記得的都還要滿。',
+  '',
+  '「所以我們不是把光拿回來。」鈴說，「是把它送回去。」',
+  '',
+  '鐵山把行李放下，難得地沒有抱怨，只說了一句：回去要煮一鍋大的。',
+  '',
+  '圖鑑翻到最後一頁，原本空著的地方，慢慢浮現出一道沒見過的紋路。',
+  '',
+  '—— 星塵幻獸　真章　完 ——',
+  '',
+  '星塵幻獸的旅程到這裡結束了。謝謝你陪這片大陸走到最後。'
+];
+
 export class EndingScene implements Scene {
   time = 0;
   idx = 1;
+  lines: string[];
+
+  constructor(lines: string[] = ENDING_LINES) {
+    this.lines = lines;
+  }
 
   update(dt: number) {
     this.time += dt;
-    if (this.time > 1.6 && this.idx < ENDING_LINES.length) {
+    if (this.time > 1.6 && this.idx < this.lines.length) {
       this.time = 0;
       this.idx++;
     }
-    if (input.consume('space', 'enter', 'escape') && this.idx >= ENDING_LINES.length) {
+    if (input.consume('space', 'enter', 'escape') && this.idx >= this.lines.length) {
       void this.toTitle();
     }
     if (input.isDown('shift')) {
-      this.idx = ENDING_LINES.length;
+      this.idx = this.lines.length;
     }
   }
 
@@ -1053,7 +1319,7 @@ export class EndingScene implements Scene {
 
   render(ctx: CanvasRenderingContext2D) {
     drawStarfield(ctx, this.time + this.idx);
-    const shown = ENDING_LINES.slice(0, Math.max(1, this.idx));
+    const shown = this.lines.slice(0, Math.max(1, this.idx));
     shown.forEach((l, i) => {
       const a = i === shown.length - 1 ? Math.min(1, this.time / 0.8) : 1;
       label(ctx, l, VIEW_W / 2, 84 + i * 22, {
@@ -1065,7 +1331,7 @@ export class EndingScene implements Scene {
       });
     });
 
-    if (this.idx >= ENDING_LINES.length) {
+    if (this.idx >= this.lines.length) {
       const blink = Math.sin(this.time * 4) > 0;
       if (blink) {
         label(ctx, '按 空白鍵 回到標題', VIEW_W / 2, VIEW_H - 50, {

@@ -1,7 +1,15 @@
 export type Element = 'none' | 'fire' | 'water' | 'wind' | 'earth';
 
-/** 異常狀態 */
-export type Ailment = 'poison' | 'paralysis' | 'sleep';
+/**
+ * 異常狀態
+ * - poison  中毒：每回合結束損失最大 HP
+ * - bleed   流血：每回合結束損失最大 HP（比中毒更痛，但不會擴散到隊友）
+ * - paralysis 麻痺：機率無法行動
+ * - sleep   睡眠：必定無法行動，受到攻擊後會醒來
+ * - freeze  冰凍：必定無法行動，受到攻擊後會碎裂解除
+ * - confuse 混亂：機率無法行動，並可能誤傷自己
+ */
+export type Ailment = 'poison' | 'bleed' | 'paralysis' | 'sleep' | 'freeze' | 'confuse';
 
 export interface Stats {
   hp: number;

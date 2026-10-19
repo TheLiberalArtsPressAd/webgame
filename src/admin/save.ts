@@ -162,7 +162,11 @@ export function renderSaveTab(config: GameConfig): HTMLElement {
       battlesWon: 0,
       captured: 0,
       dex: { [heroId]: true, [starterId]: true },
-      lastTown: 'village'
+      lastTown: 'village',
+      questTaken: [],
+      questProgress: {},
+      questClaimed: {},
+      questClears: {}
     };
     save.party.forEach((unit, i) => (unit.uid = i + 1));
     setDirty(true);
@@ -339,8 +343,8 @@ export function renderSaveTab(config: GameConfig): HTMLElement {
         h('summary', null, '能力上限（可直接修改）'),
         h('div', { class: 'grid grid-3' }, ...statInputs)
       ),
-      h('details', { class: 'details', open: unit.skills.length <= 8 },
-        h('summary', null, `技能（${unit.skills.length}）`),
+      h('details', { class: 'details' },
+        h('summary', null, `技能（${unit.skills.length}）— 點擊展開／收合`),
         h('div', { class: 'skill-checks' }, ...(skillChecks.length ? skillChecks : [empty('尚未建立技能')]))
       )
     );
@@ -381,6 +385,15 @@ export function renderSaveTab(config: GameConfig): HTMLElement {
         )
       );
       return;
+    }
+
+    if (config.rules.recalcOnLoad) {
+      root.append(
+        h('div', { class: 'notice' },
+          h('strong', null, '提醒：'),
+          ' 「公式規則 → 載入存檔時重算能力」目前是開啟的。你手動修改的 HP/MP/攻擊等上限，會在遊戲載入存檔時依種族與等級重新計算；若要保留手動數值，請先關閉該選項。'
+        )
+      );
     }
 
     const s = save;

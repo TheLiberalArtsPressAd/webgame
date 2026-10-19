@@ -140,8 +140,8 @@ const TABS: { id: Tab; icon: string; label: string; hint: string }[] = [
   { id: 'encounters', icon: '⌖', label: '遇敵', hint: 'Encounters' },
   { id: 'battles', icon: '⚔', label: '劇情戰鬥', hint: 'Battles' },
   { id: 'rules', icon: '⚙', label: '公式規則', hint: 'Rules' },
-  { id: 'save', icon: '☰', label: '存檔 / 角色', hint: 'Save Editor' },
-  { id: 'io', icon: '⇅', label: '匯出 / 匯入', hint: 'Import / Export' }
+  { id: 'save', icon: '☰', label: '存檔 / 角色', hint: 'SAVE' },
+  { id: 'io', icon: '⇅', label: '匯出 / 匯入', hint: 'JSON' }
 ];
 
 interface AdminState {
@@ -1107,19 +1107,19 @@ function renderEncountersTab(): HTMLElement {
           markDirty();
         }
       ),
-      field('最低', numberBox(entry.min, (value) => {
+      numberBox(entry.min, (value) => {
         entry.min = Math.max(1, Math.floor(value));
         markDirty();
-      }, { min: 1, max: 99 })),
-      field('最高', numberBox(entry.max, (value) => {
+      }, { min: 1, max: 99 }),
+      numberBox(entry.max, (value) => {
         entry.max = Math.max(1, Math.floor(value));
         markDirty();
-      }, { min: 1, max: 99 })),
-      field('權重', numberBox(entry.weight, (value) => {
+      }, { min: 1, max: 99 }),
+      numberBox(entry.weight, (value) => {
         entry.weight = Math.max(0, value);
         markDirty();
         render();
-      }, { min: 0, step: 0.5 })),
+      }, { min: 0, step: 0.5 }),
       h('span', { class: 'chance' }, `${chance.toFixed(1)}%`),
       button('移除', () => {
         encounter.table.splice(index, 1);
@@ -1326,10 +1326,10 @@ function renderBattleForm(battle: ScriptedBattle): HTMLElement {
           markDirty();
         }
       ),
-      field('等級', numberBox(entry.level, (value) => {
+      numberBox(entry.level, (value) => {
         entry.level = Math.max(1, Math.min(99, Math.floor(value)));
         markDirty();
-      }, { min: 1, max: 99 })),
+      }, { min: 1, max: 99 }),
       button('移除', () => {
         battle.enemies.splice(index, 1);
         markDirty();
