@@ -43,28 +43,31 @@ function readSave(config: GameConfig): GameState | null {
   try {
     const raw = localStorage.getItem(SAVE_KEY);
     if (!raw) return null;
-    const parsed = JSON.parse(raw) as GameState;
-    if (!parsed || parsed.version !== 1 || !Array.isArray(parsed.party)) return null;
-    parsed.storage = Array.isArray(parsed.storage) ? parsed.storage : [];
-    parsed.inventory = parsed.inventory ?? {};
-    parsed.flags = parsed.flags ?? {};
-    parsed.dex = parsed.dex ?? {};
-    for (const unit of [...parsed.party, ...parsed.storage]) {
-      unit.buffs = Array.isArray(unit.buffs) ? unit.buffs : [];
-      unit.skills = Array.isArray(unit.skills) ? unit.skills : [];
-      unit.level = Math.max(1, Number(unit.level) || 1);
-      unit.exp = Math.max(0, Number(unit.exp) || 0);
-      const species = config.species[unit.speciesId];
-      if (!unit.max && species) unit.max = calcStats(species, unit.level);
-      unit.max = unit.max ?? { hp: 1, mp: 0, atk: 1, def: 1, mag: 1, spd: 1 };
-      unit.hp = Math.max(0, Math.min(unit.max.hp, Number(unit.hp) || 0));
-      unit.mp = Math.max(0, Math.min(unit.max.mp, Number(unit.mp) || 0));
-      if (species && unit.sprite == null) unit.sprite = spriteOf(species);
-    }
-    return parsed;
+    return normalizeSave(JSON.parse(raw) as GameState, config);
   } catch {
     return null;
   }
+}
+
+function normalizeSave(parsed: GameState, config: GameConfig): GameState | null {
+  if (!parsed || parsed.version !== 1 || !Array.isArray(parsed.party)) return null;
+  parsed.storage = Array.isArray(parsed.storage) ? parsed.storage : [];
+  parsed.inventory = parsed.inventory ?? {};
+  parsed.flags = parsed.flags ?? {};
+  parsed.dex = parsed.dex ?? {};
+  for (const unit of [...parsed.party, ...parsed.storage]) {
+    unit.buffs = Array.isArray(unit.buffs) ? unit.buffs : [];
+    unit.skills = Array.isArray(unit.skills) ? unit.skills : [];
+    unit.level = Math.max(1, Number(unit.level) || 1);
+    unit.exp = Math.max(0, Number(unit.exp) || 0);
+    const species = config.species[unit.speciesId];
+    if (!unit.max && species) unit.max = calcStats(species, unit.level);
+    unit.max = unit.max ?? { hp: 1, mp: 0, atk: 1, def: 1, mag: 1, spd: 1 };
+    unit.hp = Math.max(0, Math.min(unit.max.hp, Number(unit.hp) || 0));
+    unit.mp = Math.max(0, Math.min(unit.max.mp, Number(unit.mp) || 0));
+    if (species && unit.sprite == null) unit.sprite = spriteOf(species);
+  }
+  return parsed;
 }
 
 function nextUid(save: GameState): number {
@@ -551,14 +554,8 @@ export function renderSaveTab(config: GameConfig): HTMLElement {
       const reader = new FileReader();
       reader.onload = () => {
         try {
-          const parsed = JSON.parse(String(reader.result)) as GameState;
-          if (!parsed || parsed.version !== 1 || !Array.isArray(parsed.party)) {
-            throw new Error('invalid save');
-          }
-          parsed.storage = Array.isArray(parsed.storage) ? parsed.storage : [];
-          parsed.inventory = parsed.inventory ?? {};
-          parsed.flags = parsed.flags ?? {};
-          parsed.dex = parsed.dex ?? {};
+          const parsed = normalizeSave(JSON.parse(String(reader.result)) as GameState, config);
+          if (!parsed) throw new Error('invalid save');
           save = parsed;
           setDirty(true);
           build();

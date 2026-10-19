@@ -82,6 +82,8 @@ export class BattleScene implements Scene {
 
   message = '';
   queue: QueuedAction[] = [];
+  /** 回合結束訊息顯示完畢後，才進入指令階段 */
+  pendingCommand = false;
 
   commands: Command[] = [];
   cmdIdx = 0;
@@ -450,6 +452,11 @@ export class BattleScene implements Scene {
       this.waitTimer -= dt;
       return;
     }
+    if (this.pendingCommand) {
+      this.pendingCommand = false;
+      this.beginCommandPhase();
+      return;
+    }
 
     if (allDead(this.enemies)) {
       this.victory();
@@ -471,32 +478,28 @@ export class BattleScene implements Scene {
   }
 
   private endRound() {
-    // 異常狀態結算（毒）
+    // 回合結束：異常狀態（毒）與增益/減益到期
     const poison = tickAilments([...this.party, ...this.enemies]);
-    if (poison.length) {
-      this.message = poison
-        .map((p) => {
-          this.hit(p.unit, 0.6);
-          const pos = this.posOf(p.unit);
-          this.float(pos.x, pos.y - 60, `${p.dmg}`, '#b07ae0', 20);
-          return `${p.unit.name} 受到毒的侵蝕（${p.dmg}）。`;
-        })
-        .join('  ');
-      this.waitTimer = 0.8;
-      if (allDead(this.enemies)) {
-        this.victory();
-        return;
-      }
-      if (allDead(this.party)) {
-        this.defeat();
-        return;
-      }
-    }
-
     const expired = tickBuffs([...this.party, ...this.enemies]);
-    if (expired.length) {
-      this.message = expired.map((e) => `${e.unit.name} 的「${e.name}」效果結束了。`).join('  ');
-      this.waitTimer = 0.7;
+    const parts: string[] = [];
+    for (const p of poison) {
+      this.hit(p.unit, 0.6);
+      const pos = this.posOf(p.unit);
+      this.float(pos.x, pos.y - 60, `${p.dmg}`, '#b07ae0', 20);
+      parts.push(`${p.unit.name} 受到毒的侵蝕（${p.dmg}）。`);
+    }
+    for (const e of expired) parts.push(`${e.unit.name} 的「${e.name}」效果結束了。`);
+    if (parts.length) {
+      this.message = parts.join('  ');
+      this.waitTimer = 0.85;
+    }
+    if (allDead(this.enemies)) {
+      this.victory();
+      return;
+    }
+    if (allDead(this.party)) {
+      this.defeat();
+      return;
     }
     const order = turnOrder([...this.party, ...this.enemies]);
     this.queue = [];
@@ -506,6 +509,11 @@ export class BattleScene implements Scene {
     }
     if (this.queue.length === 0) {
       this.defeat();
+      return;
+    }
+    if (parts.length) {
+      // 先讓回合結束訊息顯示完，再進入指令階段
+      this.pendingCommand = true;
       return;
     }
     this.beginCommandPhase();
@@ -664,8 +672,12 @@ export class BattleScene implements Scene {
 
   private performSkill(actor: Unit, sk: SkillDef, primary: Unit) {
     const label2 = `【${sk.name}】`;
+    // 目標清單必須依「施術者陣營」判定，否則敵方的全體技會打到自己的同伴
+    const actorIsEnemy = actor.kind === 'enemy';
+    const foes = () => (actorIsEnemy ? this.aliveParty() : this.aliveEnemies());
+    const allies = () => (actorIsEnemy ? this.aliveEnemies() : this.aliveParty());
     if (sk.cure) {
-      const list = sk.target === 'allAlly' ? this.aliveParty() : [primary];
+      const list = sk.target === 'allAlly' ? allies() : [primary];
       const cured: string[] = [];
       for (const t of list) {
         if (t.ailment) {
@@ -681,7 +693,7 @@ export class BattleScene implements Scene {
       return;
     }
     if (sk.kind === 'heal') {
-      const list = sk.target === 'allAlly' ? this.aliveParty() : [primary];
+      const list = sk.target === 'allAlly' ? allies() : [primary];
       let total = 0;
       for (const t of list) {
         const amount = calcHeal(actor, sk, t);
@@ -709,9 +721,11 @@ export class BattleScene implements Scene {
     if (sk.kind === 'buff' || sk.kind === 'debuff') {
       const list =
         sk.target === 'allAlly'
-          ? this.aliveParty()
-          : sk.target === 'ally' || sk.target === 'self'
+          ? allies()
+          : sk.kind === 'buff'
           ? [primary]
+          : sk.target === 'allEnemy'
+          ? foes()
           : [primary];
       for (const t of list) {
         this.getFx(t).flash = 0.6;
@@ -729,7 +743,7 @@ export class BattleScene implements Scene {
       return;
     }
     if (sk.kind === 'status') {
-      const list = sk.target === 'allEnemy' ? this.aliveEnemies() : [primary];
+      const list = sk.target === 'allEnemy' ? foes() : [primary];
       const names: string[] = [];
       for (const t of list) {
         if (!sk.ailment) continue;
