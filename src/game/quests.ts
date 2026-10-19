@@ -213,7 +213,7 @@ function mulberry32(seed: number) {
   };
 }
 
-const DELIVER_POOL = ['herb', 'herb_hi', 'manadrop', 'ether', 'stardust', 'stardust_hi', 'antidote'];
+const DELIVER_POOL = ['herb', 'herb_hi', 'herb_max', 'manadrop', 'ether', 'ether_hi', 'stardust', 'stardust_hi', 'antidote'];
 
 const EQUIP_TIERS: string[][] = [
   ['armor_leather', 'weapon_iron', 'acc_swift'],

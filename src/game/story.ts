@@ -1,4 +1,5 @@
 import type { GameState } from './state';
+import type { BgmName } from '../engine/audio';
 
 export interface StoryLine {
   who: string;
@@ -18,7 +19,21 @@ export interface StoryNode {
 // 任務提示
 // ─────────────────────────────────────────────────────────────
 export function questHint(s: GameState): string {
-  if (s.flags['true_ended']) return '星塵大陸的故事，就此真正完結。';
+  if (s.flags['star_ended']) return '星海之願，已經實現。';
+  if (s.flags['true_ended']) {
+    switch (s.stage) {
+      case 14:
+        return '風空港東邊的海上，據說浮起了一座星海渡口。';
+      case 15:
+        return '往星海渡口南方，走進星霧林。';
+      case 16:
+        return '穿越彗星迴橋，前往碎星鍛坊。';
+      case 17:
+        return '登上星之搖籃，面對星海之主。';
+      default:
+        return '冒險已告一段落。';
+    }
+  }
   if (s.flags['ended']) {
     switch (s.stage) {
       case 11:
@@ -471,12 +486,38 @@ export function npcDialogue(id: string, s: GameState): StoryNode {
 
     // ── 深淵迴廊（結局後） ──
     case 'sky_gate': {
+      if (s.flags['star_ended']) {
+        return {
+          lines: [
+            { who: '守望者 卡蘭', text: '星海那邊，你去過了嗎？' },
+            { who: '卡蘭', text: '上一位從那裡回來的人說——那不是光，是接住光的地方。' },
+            { who: '卡蘭', text: '……我這輩子，也算是看見了。' }
+          ]
+        };
+      }
       if (s.flags['true_ended']) {
+        if (s.flags['star5_start']) {
+          return {
+            lines: [
+              { who: '守望者 卡蘭', text: '往東就是星海渡口。渡船一直都在等懂得許願的人。' },
+              { who: '守望者 卡蘭', text: '裂縫合起來之後，海上卻浮起了新的東西——那不是壞事。' }
+            ]
+          };
+        }
         return {
           lines: [
             { who: '守望者 卡蘭', text: '裂縫……合起來了。' },
             { who: '卡蘭', text: '我在這裡守了三十年，等的就是這一天。' },
-            { who: '卡蘭', text: '去過那裡的人，眼睛裡都會多一點光。你也是。' }
+            { who: '卡蘭', text: '不過——你往東邊的海面看。' },
+            { who: '卡蘭', text: '星塵回到天上以後，海上浮起了一座渡口。上面有人影。' },
+            { who: '卡蘭', text: '像我這種守著裂縫的人，是不會過去的。但你可以。' }
+          ],
+          choices: [
+            {
+              text: '搭上渡船，前往星海渡口',
+              action: 'travel:starhaven:1:7;flag:star5_start;stage:15'
+            },
+            { text: '先在這裡待一會' }
           ]
         };
       }
@@ -498,6 +539,85 @@ export function npcDialogue(id: string, s: GameState): StoryNode {
       };
     }
 
+    // ── 星海渡口（真結局後） ──
+    case 'star_ferry': {
+      if (!s.flags['star5_start']) {
+        return {
+          lines: [
+            { who: '渡守 星河', text: '歡迎。能走到這裡的人，身上都帶著一點光。' },
+            { who: '星河', text: '這裡是星海渡口，所有迷路的星塵都會先漂到這。' },
+            { who: '星河', text: '往南是星霧林，穿過彗星迴橋、碎星鍛坊，就能登上星之搖籃。' },
+            { who: '星河', text: '這些藥帶著，路上用得著。' }
+          ],
+          action: 'flag:star5_start;stage:15;give:herb_max:3;give:ether_hi:2'
+        };
+      }
+      if (s.flags['star_ended']) {
+        return {
+          lines: [
+            { who: '渡守 星河', text: '星海之主，願意聽你的願望了嗎？' },
+            { who: '星河', text: '……那就好。渡口的光，也跟著亮了一些。' }
+          ]
+        };
+      }
+      return {
+        lines: [
+          { who: '渡守 星河', text: '往南走進星霧林吧。星霧裡容易迷路，跟著光的方向。' }
+        ]
+      };
+    }
+
+    case 'star_shop':
+      return {
+        lines: [
+          { who: '道具商 曜', text: '星海的東西不比陸地便宜，但都染過星光。' },
+          { who: '道具商 曜', text: '看看有沒有合用的？' }
+        ],
+        choices: [
+          { text: '看看商品', action: 'shop' },
+          { text: '先不用' }
+        ]
+      };
+
+    case 'star_medic':
+      return {
+        lines: [
+          { who: '醫者 昀', text: '把手伸出來，讓我看看。' },
+          { who: '醫者 昀', text: '星霧會讓人疲倦，不過你和幻獸都沒事。' }
+        ],
+        action: 'heal'
+      };
+
+    case 'nebula_guide':
+      return {
+        lines: [
+          { who: '星海嚮導 澪', text: '星霧林是星塵休息的地方，牠們脾氣不壞，但被打擾會生氣。' },
+          { who: '星海嚮導 澪', text: '往東過了迴橋，就是碎星鍛坊——那裡的火，是從星星上敲下來的。' },
+          { who: '星海嚮導 澪', text: '如果你的幻獸資質夠好，星霧林深處還藏著會進化的血脈。' }
+        ]
+      };
+
+    case 'comet_watcher':
+      return {
+        lines: [
+          { who: '觀星者 穹', text: '你腳下這座橋，是一顆彗星睡著以後彎成的。' },
+          { who: '觀星者 穹', text: '我每晚都在數橋下的星塵，可從來沒數完過。' },
+          { who: '觀星者 穹', text: '東邊的鍛坊守著一隻石像，通過牠，星星的門才會開。' }
+        ]
+      };
+
+    case 'forge_smith':
+      return {
+        lines: [
+          { who: '鍛師 熔', text: '這裡的火，是從星核敲下來的。一件兵器，能淬上好幾十年。' },
+          { who: '鍛師 熔', text: '星輝、星壁、流星……你要哪一種寶石，我這都有。' }
+        ],
+        choices: [
+          { text: '看看商品', action: 'shop' },
+          { text: '先不用' }
+        ]
+      };
+
     default:
       return { lines: [{ who: '？', text: '……' }] };
   }
@@ -515,6 +635,8 @@ export interface ScriptedBattle {
   /** 戰勝後執行的動作 */
   onWin?: string;
   bg: BattleBg;
+  /** 覆寫戰鬥背景音樂（未指定時：頭目 → boss，其餘 → battle） */
+  music?: BgmName;
   /** 頭目階段機制（依頭目 HP 比例觸發） */
   phases?: BattlePhaseDef[];
 }
@@ -530,7 +652,7 @@ export interface BattlePhaseDef {
 }
 
 /** 戰鬥背景 */
-export type BattleBg = 'field' | 'cave' | 'road' | 'harbor' | 'snow' | 'volcano' | 'sky' | 'abyss';
+export type BattleBg = 'field' | 'cave' | 'road' | 'harbor' | 'snow' | 'volcano' | 'sky' | 'abyss' | 'star' | 'forge';
 
 export const SCRIPTED_BATTLES: Record<string, ScriptedBattle> = {
   hound: {
@@ -759,6 +881,113 @@ export const SCRIPTED_BATTLES: Record<string, ScriptedBattle> = {
         enrage: [{ stat: 'mag', amount: 0.4, turns: 99 }]
       }
     ]
+  },
+
+  // ── 第五章：星海之願 ──
+  nebulaswarm: {
+    id: 'nebulaswarm',
+    enemies: [
+      { species: 'nebularat', level: 44 },
+      { species: 'quasarbat', level: 45 },
+      { species: 'prismspider', level: 45 }
+    ],
+    boss: false,
+    canFlee: true,
+    intro: '星霧凝出一群躁動的身影，牠們擋在林的深處，不讓任何人穿過。',
+    onWin: 'flag:ch5_mid;stage:16',
+    bg: 'star'
+  },
+  cometguardian: {
+    id: 'cometguardian',
+    enemies: [
+      { species: 'cometlisk', level: 50 },
+      { species: 'meteorfang', level: 50 },
+      { species: 'astralowl', level: 50 }
+    ],
+    boss: true,
+    canFlee: false,
+    intro: '迴橋盡頭，三道光影自彗星中走出——「橋不給心不誠的人過。」',
+    onWin: 'flag:ch6_mid;stage:17',
+    bg: 'star',
+    phases: [
+      {
+        hpBelow: 0.55,
+        message: '彗星在牠們腳下加速——「那就像彗尾一樣，燒起來吧。」',
+        enrage: [{ stat: 'spd', amount: 0.3, turns: 99 }]
+      },
+      {
+        hpBelow: 0.3,
+        message: '迴橋的星光被吸走，兩隻彗尾蜥自橋的裂縫爬出！',
+        summon: [
+          { species: 'cometlisk', level: 48 },
+          { species: 'quasarbat', level: 48 }
+        ]
+      }
+    ]
+  },
+  forgegolem: {
+    id: 'forgegolem',
+    enemies: [
+      { species: 'forgehog', level: 52 },
+      { species: 'gravitoad', level: 52 },
+      { species: 'czarwyrm', level: 53 }
+    ],
+    boss: true,
+    canFlee: false,
+    intro: '鍛坊深處的爐火忽然轉白——「未經淬鍊之物，不得進入星門。」',
+    bg: 'forge',
+    phases: [
+      {
+        hpBelow: 0.6,
+        message: '爐火噴出一道星焰，牠們的甲殼被燒得透紅——防禦提升了！',
+        enrage: [{ stat: 'def', amount: 0.35, turns: 99 }]
+      },
+      {
+        hpBelow: 0.3,
+        message: '「那就一起入爐吧。」熔鐵在地面擴散，重力蟾自漿中浮起。',
+        summon: [{ species: 'forgehog', level: 51 }],
+        healRatio: 0.1
+      }
+    ]
+  },
+  starmother: {
+    id: 'starmother',
+    enemies: [
+      { species: 'starmother', level: 60 },
+      { species: 'prismwyrm', level: 55 },
+      { species: 'cometlord', level: 55 }
+    ],
+    boss: true,
+    canFlee: false,
+    intro: '搖籃的最深處，那個存在張開了眼——「說吧，你的願望。我聽得見。」',
+    onWin: 'flag:star_ended;stage:18',
+    bg: 'star',
+    music: 'finale',
+    phases: [
+      {
+        hpBelow: 0.75,
+        message: '「你的願望，比我想的還要重。」星海之主身後泛起一整個夜空——全能力提升了！',
+        enrage: [
+          { stat: 'atk', amount: 0.2, turns: 99 },
+          { stat: 'mag', amount: 0.2, turns: 99 }
+        ]
+      },
+      {
+        hpBelow: 0.5,
+        message: '兩道迷路的星塵被她拉了進來，成為護衛。',
+        summon: [
+          { species: 'nebulaqueen', level: 55 },
+          { species: 'sunforger', level: 55 }
+        ],
+        healRatio: 0.08
+      },
+      {
+        hpBelow: 0.25,
+        message: '「那就把所有的光，都還給你。」星海收束，她張開了最大的懷抱。',
+        healRatio: 0.18,
+        enrage: [{ stat: 'spd', amount: 0.35, turns: 99 }]
+      }
+    ]
   }
 };
 
@@ -816,5 +1045,22 @@ export const SHOP_STOCK = [
   'gem_swift',
   'gem_pure',
   'gem_ward',
-  'gem_element'
+  'gem_element',
+  // 星海道具（第五彈）
+  'herb_max',
+  'ether_hi',
+  'antidote_hi',
+  'phoenix_hi',
+  'elixir_hi',
+  'bomb_mega',
+  'weapon_star',
+  'weapon_comet',
+  'armor_star',
+  'armor_nebula',
+  'acc_star',
+  'acc_comet',
+  'gem_nova',
+  'gem_astral',
+  'gem_bulwark',
+  'gem_quick'
 ];

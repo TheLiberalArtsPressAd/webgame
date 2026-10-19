@@ -5,7 +5,7 @@ import { createUnit, AILMENT_COLOR, AILMENT_ICON, AILMENT_NAME, ELEMENT_COLOR, E
 import { session } from '../game/session';
 import { addGold, addItem, addPet, giveExp, grantAchievements, itemCount, removeItem, type LevelUpInfo } from '../game/state';
 import { questOnCapture, questOnWin } from '../game/quests';
-import { audio } from '../engine/audio';
+import { audio, type BgmName } from '../engine/audio';
 import {
   actionBlocked,
   allDead,
@@ -48,6 +48,8 @@ export interface BattleOptions {
   boss: boolean;
   canFlee: boolean;
   intro?: string;
+  /** 覆寫背景音樂（未指定時：頭目 → boss，其餘 → battle） */
+  music?: BgmName;
   /** 頭目階段機制（選用） */
   phases?: BattlePhase[];
   onEnd: (r: 'win' | 'lose' | 'flee') => void;
@@ -143,7 +145,7 @@ export class BattleScene implements Scene {
 
   enter() {
     this.message = this.opt.intro ?? '戰鬥開始！';
-    audio.setBgm(this.opt.boss ? 'boss' : 'battle');
+    audio.setBgm(this.opt.music ?? (this.opt.boss ? 'boss' : 'battle'));
   }
 
   // ─────────────────────────────────────────────────────────
@@ -1221,7 +1223,9 @@ export class BattleScene implements Scene {
       snow: ['#2a3a5c', '#4a6a90', '#c8dcec'],
       volcano: ['#2a0e08', '#5a2010', '#8a3a14'],
       sky: ['#1a1638', '#3a2f74', '#7a6ac0'],
-      abyss: ['#08040f', '#1c0a2e', '#2e1046']
+      abyss: ['#08040f', '#1c0a2e', '#2e1046'],
+      star: ['#0e1030', '#2a2a6a', '#5a6ab8'],
+      forge: ['#2a0e08', '#6a2a12', '#b85a1a']
     };
     const [c1, c2, c3] = palettes[this.opt.bg] ?? palettes.field;
     const g = ctx.createLinearGradient(0, 0, 0, VIEW_H);

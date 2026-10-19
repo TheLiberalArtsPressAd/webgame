@@ -826,7 +826,8 @@ export const MAPS: Record<string, MapDef> = {
     openings: [
       { x: 11, y: 14 },
       { x: 11, y: 0 },
-      { x: 0, y: 7 }
+      { x: 0, y: 7 },
+      { x: 21, y: 7 }
     ],
     npcs: [
       {
@@ -865,11 +866,13 @@ export const MAPS: Record<string, MapDef> = {
     portals: [
       { x: 11, y: 14, to: 'desert', tx: 11, ty: 0, dir: 2 },
       { x: 11, y: 0, to: 'skytemple', tx: 11, ty: 15, dir: 0 },
-      { x: 0, y: 7, to: 'abyssgate', tx: 11, ty: 13, dir: 3, requires: 'ended' }
+      { x: 0, y: 7, to: 'abyssgate', tx: 11, ty: 13, dir: 3, requires: 'ended' },
+      { x: 21, y: 7, to: 'starhaven', tx: 1, ty: 7, dir: 1, requires: 'true_ended' }
     ],
     props: [
       { x: 12, y: 1, kind: 'sign', text: '↑ 北：星穹神殿　↓ 南：流金沙原' },
       { x: 1, y: 6, kind: 'sign', text: '← 西：深淵迴廊（需先讓星塵回歸）' },
+      { x: 20, y: 6, kind: 'sign', text: '→ 東：星海渡口（需先完成真正的結局）' },
       { x: 6, y: 9, kind: 'board' }
     ],
     triggers: []
@@ -1079,6 +1082,316 @@ export const MAPS: Record<string, MapDef> = {
         { species: 'starwisp', min: 40, max: 44, weight: 2 }
       ]
     }
+  },
+
+  // ═══════════════════════════════════════════════════════════
+  // 第五章：星海之願（真結局後開放）
+  // ═══════════════════════════════════════════════════════════
+  starhaven: {
+    id: 'starhaven',
+    name: '星海渡口',
+    w: 22,
+    h: 15,
+    border: 'T',
+    floorChar: '_',
+    town: true,
+    spawn: { x: 10, y: 2 },
+    tint: 'rgba(30,40,90,0.28)',
+    rows: [
+      'TTTTTTTTTTTTTTTTTTTTTT',
+      'T____________________T',
+      'T__rrr________rrr____T',
+      'T__w##________w##____T',
+      'T__###________###____T',
+      'T____________________T',
+      'T____________________T',
+      'T____________________T',
+      'T_____####___________T',
+      'T____________________T',
+      'T__RR____________RR__T',
+      'T__RR____________RR__T',
+      'T____________________T',
+      'T____________________T',
+      'TTTTTTTTTTTTTTTTTTTTTT'
+    ],
+    openings: [
+      { x: 0, y: 7 },
+      { x: 10, y: 14 }
+    ],
+    npcs: [
+      {
+        id: 'star_ferry',
+        x: 5,
+        y: 5,
+        name: '渡守 星河',
+        dir: 0,
+        color: { skin: '#e8d0b8', hair: '#cfe0ff', cloth: '#4a5f9a', cloth2: '#2f3f70' }
+      },
+      {
+        id: 'star_shop',
+        x: 15,
+        y: 5,
+        name: '道具商 曜',
+        dir: 0,
+        color: { skin: '#f0c8a0', hair: '#e8b84a', cloth: '#8a6ad8', cloth2: '#5a4498' }
+      },
+      {
+        id: 'star_medic',
+        x: 10,
+        y: 9,
+        name: '醫者 昀',
+        dir: 0,
+        color: { skin: '#f6d2b0', hair: '#a8e0e8', cloth: '#e8e4f0', cloth2: '#8fa8c8' }
+      }
+    ],
+    portals: [
+      { x: 0, y: 7, to: 'skyport', tx: 20, ty: 7, dir: 3 },
+      { x: 10, y: 14, to: 'nebulawood', tx: 11, ty: 1, dir: 2 }
+    ],
+    props: [
+      { x: 12, y: 1, kind: 'sign', text: '星海渡口　↓ 南：星霧林' },
+      { x: 4, y: 6, kind: 'sign', text: '← 西：風空港' },
+      { x: 6, y: 9, kind: 'board' }
+    ],
+    triggers: []
+  },
+
+  nebulawood: {
+    id: 'nebulawood',
+    name: '星霧林',
+    w: 24,
+    h: 18,
+    border: 'T',
+    floorChar: '.',
+    tint: 'rgba(40,30,80,0.3)',
+    rows: [
+      'TTTTTTTTTTTTTTTTTTTTTTTT',
+      'T......................T',
+      'T..TT..............TT..T',
+      'T..TT......*.......TT..T',
+      'T......................T',
+      'T.....~~~~....~~~~.....T',
+      'T.....~~~~....~~~~.....T',
+      'T......................T',
+      'T......................T',
+      'T..RR...............TT.T',
+      'T..RR...............TT.T',
+      'T......................T',
+      'T.......TT....TT.......T',
+      'T.......TT....TT.......T',
+      'T......................T',
+      'T......................T',
+      'T......................T',
+      'TTTTTTTTTTTTTTTTTTTTTTTT'
+    ],
+    openings: [
+      { x: 11, y: 0 },
+      { x: 23, y: 8 }
+    ],
+    encounters: {
+      rate: 0.12,
+      table: [
+        { species: 'nebularat', min: 44, max: 47, weight: 26 },
+        { species: 'quasarbat', min: 44, max: 47, weight: 22 },
+        { species: 'prismspider', min: 45, max: 48, weight: 20 },
+        { species: 'astralowl', min: 45, max: 48, weight: 18 },
+        { species: 'cometlisk', min: 46, max: 49, weight: 14 },
+        { species: 'starhermit', min: 45, max: 48, weight: 12 }
+      ]
+    },
+    npcs: [
+      {
+        id: 'nebula_guide',
+        x: 7,
+        y: 4,
+        name: '星海嚮導 澪',
+        dir: 0,
+        color: { skin: '#e8c8a8', hair: '#8ad8c8', cloth: '#3a6a8a', cloth2: '#254a62' }
+      }
+    ],
+    portals: [
+      { x: 11, y: 0, to: 'starhaven', tx: 10, ty: 13, dir: 0 },
+      { x: 23, y: 8, to: 'cometridge', tx: 1, ty: 8, dir: 3 }
+    ],
+    props: [{ x: 10, y: 1, kind: 'sign', text: '↑ 北：星海渡口　→ 東：彗星迴橋' }],
+    triggers: [{ x: 11, y: 12, flag: 'ch5_mid', action: 'battle:nebulaswarm' }]
+  },
+
+  cometridge: {
+    id: 'cometridge',
+    name: '彗星迴橋',
+    w: 24,
+    h: 18,
+    border: 'R',
+    floorChar: '_',
+    tint: 'rgba(24,30,70,0.36)',
+    rows: [
+      'RRRRRRRRRRRRRRRRRRRRRRRR',
+      'R______________________R',
+      'R_____RR________RR_____R',
+      'R_____RR________RR_____R',
+      'R______________________R',
+      'R______________________R',
+      'R__RR______________RR__R',
+      'R__RR______________RR__R',
+      'R______________________R',
+      'R______________________R',
+      'R_____RRRRRRRRRRRR_____R',
+      'R______________________R',
+      'R______________________R',
+      'R__RR______________RR__R',
+      'R__RR______________RR__R',
+      'R______________________R',
+      'R______________________R',
+      'RRRRRRRRRRRRRRRRRRRRRRRR'
+    ],
+    openings: [
+      { x: 0, y: 8 },
+      { x: 23, y: 8 }
+    ],
+    encounters: {
+      rate: 0.12,
+      table: [
+        { species: 'cometlisk', min: 47, max: 50, weight: 22 },
+        { species: 'meteorfang', min: 47, max: 50, weight: 20 },
+        { species: 'astralowl', min: 48, max: 51, weight: 20 },
+        { species: 'quasarbat', min: 48, max: 51, weight: 16 },
+        { species: 'czarwyrm', min: 50, max: 53, weight: 3 },
+        { species: 'gravitoad', min: 48, max: 51, weight: 12 }
+      ]
+    },
+    npcs: [
+      {
+        id: 'comet_watcher',
+        x: 12,
+        y: 5,
+        name: '觀星者 穹',
+        dir: 2,
+        color: { skin: '#d8c0a8', hair: '#b0a8e8', cloth: '#2f3f70', cloth2: '#1e2a50' }
+      }
+    ],
+    portals: [
+      { x: 0, y: 8, to: 'nebulawood', tx: 22, ty: 8, dir: 1 },
+      { x: 23, y: 8, to: 'starforge', tx: 1, ty: 10, dir: 3 }
+    ],
+    props: [{ x: 11, y: 1, kind: 'sign', text: '← 西：星霧林　→ 東：碎星鍛坊' }],
+    triggers: [{ x: 11, y: 8, flag: 'ch6_mid', action: 'battle:cometguardian' }]
+  },
+
+  starforge: {
+    id: 'starforge',
+    name: '碎星鍛坊',
+    w: 22,
+    h: 16,
+    border: 'X',
+    floorChar: 'C',
+    indoor: true,
+    tint: 'rgba(90,45,20,0.42)',
+    rows: [
+      'XXXXXXXXXXXXCXXXXXXXXX',
+      'XCCCCCCCCCCCCCCCCCCCCX',
+      'XCCRRCCCCCCCCCCCCRRCCX',
+      'XCCRRCCCCCCCCCCCCRRCCX',
+      'XCCCCCCCCCRRCCCCCCCCCX',
+      'XCCCCCCCCCRRCCCCCCCCCX',
+      'XCCCCCCCCCCCCCCCCCCCCX',
+      'XCCRRCCCCCCCCCCCCCCCCX',
+      'XCCRRCCCCCCCCCCCCCCCCX',
+      'XCCCCCCCCCCCCCCCCCCCCX',
+      'CCCCCCCCCCCCCCCCCCCCCC',
+      'XCCCCCCRRRRCCCCCCCCCCX',
+      'XCCCCCCRRRRCCCCCCCCCCX',
+      'XCCRCCCCCCCCCCCCCCRCCX',
+      'XCCRCCCCCCCCCCCCCCRCCX',
+      'XXXXXXXXXXXXXXXXXXXXXX'
+    ],
+    openings: [
+      { x: 0, y: 10 },
+      { x: 11, y: 0 }
+    ],
+    encounters: {
+      rate: 0.13,
+      table: [
+        { species: 'forgehog', min: 50, max: 53, weight: 24 },
+        { species: 'gravitoad', min: 50, max: 53, weight: 20 },
+        { species: 'meteorfang', min: 51, max: 54, weight: 20 },
+        { species: 'cinderimp', min: 50, max: 53, weight: 14 },
+        { species: 'czarwyrm', min: 52, max: 55, weight: 3 },
+        { species: 'prismspider', min: 51, max: 54, weight: 12 }
+      ]
+    },
+    npcs: [
+      {
+        id: 'forge_smith',
+        x: 6,
+        y: 4,
+        name: '鍛師 熔',
+        dir: 0,
+        color: { skin: '#d8a878', hair: '#8a3a1a', cloth: '#a85a2a', cloth2: '#6e3616' }
+      }
+    ],
+    portals: [
+      { x: 0, y: 10, to: 'cometridge', tx: 22, ty: 8, dir: 1 },
+      { x: 11, y: 0, to: 'starcradle', tx: 11, ty: 14, dir: 0 }
+    ],
+    props: [
+      { x: 15, y: 4, kind: 'crystal' },
+      { x: 4, y: 12, kind: 'torch' },
+      { x: 17, y: 12, kind: 'torch' },
+      { x: 13, y: 8, kind: 'sign', text: '↑ 北：星之搖籃　← 西：彗星迴橋' }
+    ],
+    triggers: [{ x: 11, y: 11, flag: 'ch6_forge', action: 'battle:forgegolem' }]
+  },
+
+  starcradle: {
+    id: 'starcradle',
+    name: '星之搖籃',
+    w: 22,
+    h: 16,
+    border: 'X',
+    floorChar: '_',
+    indoor: true,
+    tint: 'rgba(20,16,60,0.5)',
+    rows: [
+      'XXXXXXXXXXXXXXXXXXXXXX',
+      'X____________________X',
+      'X__RR____________RR__X',
+      'X__RR____________RR__X',
+      'X____________________X',
+      'X____________________X',
+      'X______RRRRRR________X',
+      'X______RRRRRR________X',
+      'X____________________X',
+      'X____________________X',
+      'X__RR____________RR__X',
+      'X__RR____________RR__X',
+      'X____________________X',
+      'X____________________X',
+      'X____________________X',
+      'XXXXXXXXXXXXXXXXXXXXXX'
+    ],
+    openings: [{ x: 11, y: 15 }],
+    encounters: {
+      rate: 0.1,
+      table: [
+        { species: 'novadrake', min: 54, max: 57, weight: 2 },
+        { species: 'cometlord', min: 54, max: 57, weight: 2 },
+        { species: 'astralwhale', min: 54, max: 57, weight: 2 },
+        { species: 'prismwyrm', min: 54, max: 57, weight: 2 },
+        { species: 'czarwyrm', min: 53, max: 56, weight: 6 },
+        { species: 'nebulaqueen', min: 53, max: 56, weight: 3 }
+      ]
+    },
+    npcs: [],
+    portals: [{ x: 11, y: 15, to: 'starforge', tx: 11, ty: 1, dir: 2 }],
+    props: [
+      { x: 7, y: 4, kind: 'crystal' },
+      { x: 14, y: 11, kind: 'crystal' },
+      { x: 4, y: 13, kind: 'torch' },
+      { x: 17, y: 4, kind: 'torch' },
+      { x: 11, y: 12, kind: 'sign', text: '「所有迷路的星塵，最後都會回到這裡。」' }
+    ],
+    triggers: [{ x: 11, y: 8, flag: 'star_final', action: 'battle:starmother' }]
   }
 };
 

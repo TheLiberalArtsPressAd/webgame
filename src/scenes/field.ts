@@ -65,6 +65,13 @@ export function bgForMap(mapId: string, indoor: boolean): BattleBg {
     case 'abysshall':
     case 'abyssdeep':
       return 'abyss';
+    case 'starforge':
+      return 'forge';
+    case 'starhaven':
+    case 'nebulawood':
+    case 'cometridge':
+    case 'starcradle':
+      return 'star';
     default:
       return indoor ? 'cave' : 'field';
   }
@@ -545,6 +552,7 @@ export class FieldScene implements Scene {
         boss: def.boss,
         canFlee: def.canFlee,
         intro: def.intro,
+        music: def.music,
         phases: def.phases,
         onEnd: (result) => {
           if (result === 'win') {

@@ -108,7 +108,10 @@ const BATTLE_BG_OPTIONS: { value: BattleBg; label: string }[] = [
   { value: 'harbor', label: '港口 harbor' },
   { value: 'snow', label: '雪原 snow' },
   { value: 'volcano', label: '火山 volcano' },
-  { value: 'sky', label: '天空 sky' }
+  { value: 'sky', label: '天空 sky' },
+  { value: 'abyss', label: '深淵 abyss' },
+  { value: 'star', label: '星海 star' },
+  { value: 'forge', label: '爐火 forge' }
 ];
 
 const STAT_META: { key: keyof Stats; label: string }[] = [

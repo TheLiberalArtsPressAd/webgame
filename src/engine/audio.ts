@@ -25,7 +25,7 @@ export type SfxName =
   | 'fuse'
   | 'socket';
 
-export type BgmName = 'title' | 'town' | 'shop' | 'field' | 'battle' | 'boss' | 'abyss' | 'ending';
+export type BgmName = 'title' | 'town' | 'shop' | 'field' | 'battle' | 'boss' | 'abyss' | 'ending' | 'star' | 'forge' | 'finale';
 
 const MUTE_KEY = 'sb_muted';
 
@@ -228,6 +228,67 @@ const TRACKS: Record<BgmName, TrackDef> = {
     bassPat: BASS_SOFT,
     arp: true,
     pad7: true
+  },
+  star: {
+    bpm: 96,
+    lead: 'sine',
+    bass: 'triangle',
+    chords: [
+      [62, 66, 69, 73],
+      [60, 64, 67, 71],
+      [57, 61, 64, 68],
+      [59, 62, 66, 69]
+    ],
+    melody: [74, 78, 81, 85, 81, 78, 76, 73, 76, 78, 81, 78],
+    melodyDensity: 0.52,
+    leadGain: 0.085,
+    padGain: 0.06,
+    bassGain: 0.11,
+    bassShift: -12,
+    drums: 'soft',
+    bassPat: [0, null, 7, null, 0, null, 7, null, 5, null, 7, null, 4, null, 7, null],
+    arp: true,
+    pad7: true
+  },
+  forge: {
+    bpm: 132,
+    lead: 'square',
+    bass: 'sawtooth',
+    chords: [
+      [57, 60, 64, 67],
+      [55, 59, 62, 65],
+      [53, 57, 60, 64],
+      [55, 58, 62, 65]
+    ],
+    melody: [69, 72, 76, 74, 72, 69, 67, 64, 67, 69, 72, 69],
+    melodyDensity: 0.68,
+    leadGain: 0.07,
+    padGain: 0.045,
+    bassGain: 0.125,
+    bassShift: -12,
+    drums: 'drive',
+    bassPat: [0, 0, null, 0, 7, null, 5, null, 0, 0, null, 12, null, 7, null, 5],
+    pad7: false
+  },
+  finale: {
+    bpm: 160,
+    lead: 'sawtooth',
+    bass: 'sawtooth',
+    chords: [
+      [63, 66, 70, 73],
+      [62, 65, 69, 72],
+      [60, 63, 67, 70],
+      [65, 68, 72, 75]
+    ],
+    melody: [75, 79, 82, 86, 82, 79, 77, 75, 77, 79, 82, 79],
+    melodyDensity: 0.78,
+    leadGain: 0.075,
+    padGain: 0.05,
+    bassGain: 0.135,
+    bassShift: -12,
+    drums: 'heart',
+    bassPat: [0, 0, null, 0, 12, null, 7, null, 0, 0, null, 0, 10, null, 5, null],
+    pad7: false
   }
 };
 
@@ -660,6 +721,10 @@ export const audio = new AudioEngine();
 /** 依地圖判斷背景音樂 */
 export function bgmForMap(mapId: string, town: boolean): BgmName {
   if (mapId.startsWith('abyss')) return 'abyss';
+  if (mapId === 'starforge') return 'forge';
+  if (mapId === 'starhaven' || mapId === 'nebulawood' || mapId === 'cometridge' || mapId === 'starcradle') {
+    return 'star';
+  }
   if (town) return 'town';
   if (mapId === 'skytemple') return 'boss';
   return 'field';

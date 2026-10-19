@@ -108,7 +108,32 @@ export const PASSIVES: Record<string, PassiveDef> = {
   prismweave: { id: 'prismweave', name: '稜彩之軀', desc: '魔力 +10%，所有屬性傷害 -15%。', statMult: { mag: 0.1 }, elementResist: { fire: 0.15, water: 0.15, wind: 0.15, earth: 0.15, none: 0.15 } },
   chronoweave: { id: 'chronoweave', name: '時序編織', desc: '速度 +20%，戰鬥經驗 +20%。', statMult: { spd: 0.2 }, expBonus: 0.2 },
   nightveil: { id: 'nightveil', name: '夜幕之影', desc: '造成傷害時吸取 25%，免疫睡眠。', drain: 0.25, immune: ['sleep'] },
-  auroraveil: { id: 'auroraveil', name: '極光帷幕', desc: '所有屬性傷害 -20%，金幣 +20%。', elementResist: { fire: 0.2, water: 0.2, wind: 0.2, earth: 0.2, none: 0.2 }, goldBonus: 0.2 }
+  auroraveil: { id: 'auroraveil', name: '極光帷幕', desc: '所有屬性傷害 -20%，金幣 +20%。', elementResist: { fire: 0.2, water: 0.2, wind: 0.2, earth: 0.2, none: 0.2 }, goldBonus: 0.2 },
+  // ── 星海（第五彈） ──
+  nebulaheart: { id: 'nebulaheart', name: '星霧之心', desc: '魔力 +12%，免疫睡眠。', statMult: { mag: 0.12 }, immune: ['sleep'] },
+  cometfire: { id: 'cometfire', name: '彗星之炎', desc: '攻擊 +12%、速度 +10%。', statMult: { atk: 0.12, spd: 0.1 } },
+  ironhide: { id: 'ironhide', name: '隕鐵之甲', desc: '防禦 +15%，受到地屬性傷害 -20%。', statMult: { def: 0.15 }, elementResist: { earth: 0.2 } },
+  starwing: { id: 'starwing', name: '星羽', desc: '速度 +18%，受到風屬性傷害 -15%。', statMult: { spd: 0.18 }, elementResist: { wind: 0.15 } },
+  prismcarapace: {
+    id: 'prismcarapace',
+    name: '稜晶甲殼',
+    desc: '防禦 +10%，所有異常狀態抗性 +30%。',
+    statMult: { def: 0.1 },
+    ailmentResist: { poison: 0.3, bleed: 0.3, paralysis: 0.3, sleep: 0.3, freeze: 0.3, confuse: 0.3 }
+  },
+  forgeblood: { id: 'forgeblood', name: '鍛爐之血', desc: '攻擊 +15%，受到火屬性傷害 -20%。', statMult: { atk: 0.15 }, elementResist: { fire: 0.2 } },
+  tidalveil: { id: 'tidalveil', name: '星潮帷幕', desc: '受到水屬性傷害 -30%，造成傷害時吸取 8%。', elementResist: { water: 0.3 }, drain: 0.08 },
+  gravcore: { id: 'gravcore', name: '重力核心', desc: 'HP +12%、防禦 +10%。', statMult: { hp: 0.12, def: 0.1 } },
+  novaheart: { id: 'novaheart', name: '新星之心', desc: '魔力 +18%，受到火屬性傷害 -25%。', statMult: { mag: 0.18 }, elementResist: { fire: 0.25 } },
+  voidanchor: {
+    id: 'voidanchor',
+    name: '虛空之錨',
+    desc: '免疫混亂，所有異常狀態抗性 +20%。',
+    immune: ['confuse'],
+    ailmentResist: { poison: 0.2, bleed: 0.2, paralysis: 0.2, sleep: 0.2, freeze: 0.2 }
+  },
+  staraegis: { id: 'staraegis', name: '星海守護', desc: '所有屬性傷害 -25%，HP +20%。', statMult: { hp: 0.2 }, elementResist: { fire: 0.25, water: 0.25, wind: 0.25, earth: 0.25, none: 0.25 } },
+  solarforged: { id: 'solarforged', name: '烈陽鍛體', desc: '攻擊 +20%，受到火屬性傷害 -25%。', statMult: { atk: 0.2 }, elementResist: { fire: 0.25 } }
 };
 
 /** 未指定 passive 時，依身形推導 */
@@ -188,7 +213,26 @@ const SPECIES_PASSIVE: Record<string, string> = {
   prismfox: 'prismweave',
   chronodrake: 'chronoweave',
   nyxbeast: 'nightveil',
-  aurorawisp: 'auroraveil'
+  aurorawisp: 'auroraveil',
+  // 星海（第五彈）
+  nebularat: 'nebulaheart',
+  cometlisk: 'cometfire',
+  meteorfang: 'ironhide',
+  astralowl: 'starwing',
+  prismspider: 'prismcarapace',
+  forgehog: 'forgeblood',
+  starhermit: 'tidalveil',
+  gravitoad: 'gravcore',
+  czarwyrm: 'stonebody',
+  quasarbat: 'greedy',
+  novadrake: 'novaheart',
+  voidroot: 'earthshaker',
+  cometlord: 'skylord',
+  astralwhale: 'skylord',
+  prismwyrm: 'prismweave',
+  sunforger: 'solarforged',
+  nebulaqueen: 'prismweave',
+  starmother: 'staraegis'
 };
 
 export function passiveOf(sp: SpeciesDef | undefined | null): PassiveDef | null {
@@ -996,6 +1040,226 @@ export const SKILLS: Record<string, SkillDef> = {
     kind: 'heal',
     target: 'allAlly',
     cure: true
+  },
+  // ── 追加：星海（終章） ──
+  nebulaedge: {
+    id: 'nebulaedge',
+    name: '星霧之刃',
+    desc: '凝出星霧成刃，掃過所有敵人。',
+    element: 'none',
+    mp: 16,
+    power: 40,
+    kind: 'attack',
+    target: 'allEnemy'
+  },
+  cometdash: {
+    id: 'cometdash',
+    name: '彗星突擊',
+    desc: '拖著彗尾衝撞單體敵人。',
+    element: 'fire',
+    mp: 14,
+    power: 44,
+    kind: 'attack',
+    target: 'enemy',
+    physical: true
+  },
+  meteorfall: {
+    id: 'meteorfall',
+    name: '隕石墜',
+    desc: '召來成群隕石砸向所有敵人。',
+    element: 'earth',
+    mp: 22,
+    power: 50,
+    kind: 'attack',
+    target: 'allEnemy'
+  },
+  astralchime: {
+    id: 'astralchime',
+    name: '星靈共鳴',
+    desc: '星靈齊鳴，提升我方全體魔力 50%（3 回合）。',
+    element: 'none',
+    mp: 18,
+    power: 0.5,
+    kind: 'buff',
+    target: 'allAlly',
+    stat: 'mag',
+    turns: 3
+  },
+  prismweb: {
+    id: 'prismweb',
+    name: '稜晶網',
+    desc: '射出稜晶絲網，對單體造成傷害並有機會麻痺。',
+    element: 'none',
+    mp: 16,
+    power: 34,
+    kind: 'attack',
+    target: 'enemy',
+    ailment: 'paralysis',
+    ailmentChance: 0.6,
+    ailmentTurns: 3
+  },
+  forgeslam: {
+    id: 'forgeslam',
+    name: '鍛爐重錘',
+    desc: '以鍛爐般沉重的鐵拳砸下，重創單體敵人。',
+    element: 'earth',
+    mp: 18,
+    power: 58,
+    kind: 'attack',
+    target: 'enemy',
+    physical: true
+  },
+  starcurrent: {
+    id: 'starcurrent',
+    name: '星流衝',
+    desc: '星砂匯成急流，沖刷所有敵人。',
+    element: 'water',
+    mp: 22,
+    power: 48,
+    kind: 'attack',
+    target: 'allEnemy'
+  },
+  gravpulse: {
+    id: 'gravpulse',
+    name: '重力脈衝',
+    desc: '以重力壓迫單體敵人，並降低其速度。',
+    element: 'water',
+    mp: 20,
+    power: 52,
+    kind: 'attack',
+    target: 'enemy',
+    stat: 'spd'
+  },
+  novaflare: {
+    id: 'novaflare',
+    name: '新星爆焰',
+    desc: '引爆一顆新星，灼燒所有敵人。',
+    element: 'fire',
+    mp: 32,
+    power: 60,
+    kind: 'attack',
+    target: 'allEnemy'
+  },
+  voidbloom: {
+    id: 'voidbloom',
+    name: '荒根綻放',
+    desc: '荒根自地下竄出，重擊所有敵人並造成流血。',
+    element: 'earth',
+    mp: 26,
+    power: 54,
+    kind: 'attack',
+    target: 'allEnemy',
+    ailment: 'bleed',
+    ailmentChance: 0.5,
+    ailmentTurns: 2
+  },
+  razorcomet: {
+    id: 'razorcomet',
+    name: '彗刃',
+    desc: '化為一道銳利的彗星之刃貫穿單體敵人。',
+    element: 'wind',
+    mp: 20,
+    power: 58,
+    kind: 'attack',
+    target: 'enemy'
+  },
+  tidalhymn: {
+    id: 'tidalhymn',
+    name: '潮汐詠歌',
+    desc: '以潮聲撫平傷口，大量回復我方全體 HP。',
+    element: 'water',
+    mp: 24,
+    power: 70,
+    kind: 'heal',
+    target: 'allAlly'
+  },
+  prismburst: {
+    id: 'prismburst',
+    name: '稜彩爆發',
+    desc: '折射的七彩光炸裂，閃耀所有敵人。',
+    element: 'none',
+    mp: 30,
+    power: 56,
+    kind: 'attack',
+    target: 'allEnemy'
+  },
+  sunlance: {
+    id: 'sunlance',
+    name: '烈陽矛',
+    desc: '凝聚日光成矛，貫穿單體敵人。',
+    element: 'fire',
+    mp: 18,
+    power: 62,
+    kind: 'attack',
+    target: 'enemy'
+  },
+  starblessing: {
+    id: 'starblessing',
+    name: '星海祝福',
+    desc: '星海傾注而下，大幅回復我方全體 HP 並解除異常。',
+    element: 'none',
+    mp: 34,
+    power: 110,
+    kind: 'heal',
+    target: 'allAlly',
+    cure: true
+  },
+  ringstorm: {
+    id: 'ringstorm',
+    name: '星環風暴',
+    desc: '星環高速旋轉，席捲所有敵人並有機會使其混亂。',
+    element: 'none',
+    mp: 30,
+    power: 52,
+    kind: 'attack',
+    target: 'allEnemy',
+    ailment: 'confuse',
+    ailmentChance: 0.35,
+    ailmentTurns: 2
+  },
+  zenithray: {
+    id: 'zenithray',
+    name: '天頂射線',
+    desc: '自天頂筆直落下的光柱，造成極大的無屬性傷害。',
+    element: 'none',
+    mp: 28,
+    power: 72,
+    kind: 'attack',
+    target: 'enemy'
+  },
+  soulforge: {
+    id: 'soulforge',
+    name: '靈魂鍛造',
+    desc: '在戰場上重新鍛打全隊的意志，攻擊力提升 55%（3 回合）。',
+    element: 'fire',
+    mp: 22,
+    power: 0.55,
+    kind: 'buff',
+    target: 'allAlly',
+    stat: 'atk',
+    turns: 3
+  },
+  voidhowl: {
+    id: 'voidhowl',
+    name: '虛空咆哮',
+    desc: '自虛空傳出的咆哮，大幅降低所有敵人的攻擊力。',
+    element: 'none',
+    mp: 24,
+    power: -0.35,
+    kind: 'debuff',
+    target: 'allEnemy',
+    stat: 'atk',
+    turns: 3
+  },
+  creationhymn: {
+    id: 'creationhymn',
+    name: '創世詠',
+    desc: '唱出創世之初的旋律，重創所有敵人。',
+    element: 'none',
+    mp: 40,
+    power: 78,
+    kind: 'attack',
+    target: 'allEnemy'
   }
 };
 
@@ -1019,7 +1283,9 @@ export const FIELD_EFFECTS: Record<string, FieldEffectDef> = {
   snow: { name: '極寒', element: 'water', mult: 1.3, desc: '寒氣刺骨，水屬性傷害 +30%。' },
   volcano: { name: '熔岩', element: 'fire', mult: 1.3, desc: '熱浪翻騰，火屬性傷害 +30%。' },
   sky: { name: '星穹', element: 'none', mult: 1.2, desc: '星辰之力，所有傷害 +20%。' },
-  abyss: { name: '深淵', element: 'none', mult: 1.3, desc: '深淵侵蝕，所有傷害 +30%。' }
+  abyss: { name: '深淵', element: 'none', mult: 1.3, desc: '深淵侵蝕，所有傷害 +30%。' },
+  star: { name: '星海', element: 'none', mult: 1.25, desc: '星海之力，所有傷害 +25%。' },
+  forge: { name: '爐火', element: 'fire', mult: 1.3, desc: '爐火通紅，火屬性傷害 +30%。' }
 };
 
 /** 場地加成：'none' 表示全屬性加成 */
@@ -2254,6 +2520,389 @@ export const SPECIES: Record<string, SpeciesDef> = {
       { level: 1, id: 'starburst' },
       { level: 30, id: 'purifyAll' },
       { level: 40, id: 'judgement' }
+    ],
+    evolvesTo: [{ species: 'starmother', level: 55, minPotential: 45, desc: '潛能 45 以上、等級 55' }]
+  },
+
+  // ═══════════════════════════════════════════════════════════
+  // 第五章：星海之願（一般種族）
+  // ═══════════════════════════════════════════════════════════
+  nebularat: {
+    id: 'nebularat',
+    name: '星霧鼠',
+    element: 'none',
+    shape: 'blob',
+    base: g(52, 22, 12, 10, 15, 16),
+    growth: g(8, 3.2, 1.6, 1.4, 2.3, 1.9),
+    catchRate: 0.18,
+    size: 0.9,
+    c1: '#c8d4ec',
+    c2: '#7a86a8',
+    desc: '身體像一團會走動的星霧，摸起來涼涼的，尾巴拖著一縷光。',
+    skills: [
+      { level: 1, id: 'starburst' },
+      { level: 1, id: 'nebulaedge' },
+      { level: 22, id: 'haste' },
+      { level: 34, id: 'prismburst' }
+    ]
+  },
+  cometlisk: {
+    id: 'cometlisk',
+    name: '彗尾蜥',
+    element: 'fire',
+    shape: 'beast',
+    base: g(68, 26, 19, 13, 16, 15),
+    growth: g(10, 4.4, 2.6, 1.7, 2.4, 1.5),
+    catchRate: 0.14,
+    size: 1.05,
+    c1: '#f0784a',
+    c2: '#ffd98a',
+    desc: '尾端拖著一小段彗尾，跑動時會在岩石上留下焦黑的星形痕跡。',
+    skills: [
+      { level: 1, id: 'ember' },
+      { level: 1, id: 'cometdash' },
+      { level: 24, id: 'powerup' },
+      { level: 36, id: 'novaflare' }
+    ],
+    evolvesTo: [{ species: 'novadrake', level: 40, minPotential: 15, desc: '潛能 15 以上' }]
+  },
+  meteorfang: {
+    id: 'meteorfang',
+    name: '隕鐵牙獸',
+    element: 'earth',
+    shape: 'beast',
+    base: g(84, 16, 22, 19, 8, 10),
+    growth: g(12.5, 2, 2.9, 2.6, 0.9, 0.9),
+    catchRate: 0.13,
+    size: 1.2,
+    c1: '#6a6a78',
+    c2: '#c8b48a',
+    horns: true,
+    desc: '獠牙是墜地隕鐵打磨而成，據說能聞出地底深處的星塵脈。',
+    skills: [
+      { level: 1, id: 'bite' },
+      { level: 1, id: 'rockfall' },
+      { level: 26, id: 'guardup' },
+      { level: 40, id: 'meteorfall' }
+    ],
+    evolvesTo: [{ species: 'voidroot', level: 42, minPotential: 15, desc: '潛能 15 以上' }]
+  },
+  astralowl: {
+    id: 'astralowl',
+    name: '星靈梟',
+    element: 'wind',
+    shape: 'bird',
+    base: g(60, 36, 16, 12, 21, 22),
+    growth: g(8.5, 5.4, 2.1, 1.6, 2.9, 2.3),
+    catchRate: 0.12,
+    size: 1.1,
+    c1: '#a8b8e8',
+    c2: '#f0e8b0',
+    wings: true,
+    desc: '翅羽間綴著會明滅的星點，振翅時整片森林的蟲鳴都會安靜下來。',
+    skills: [
+      { level: 1, id: 'gust' },
+      { level: 1, id: 'astralchime' },
+      { level: 26, id: 'thunderbolt' },
+      { level: 38, id: 'razorcomet' }
+    ],
+    evolvesTo: [{ species: 'cometlord', level: 40, minPotential: 15, desc: '潛能 15 以上' }]
+  },
+  prismspider: {
+    id: 'prismspider',
+    name: '稜晶蛛',
+    element: 'none',
+    shape: 'bug',
+    base: g(62, 30, 17, 15, 18, 18),
+    growth: g(9, 4.6, 2.3, 2.0, 2.5, 1.9),
+    catchRate: 0.15,
+    size: 1.0,
+    c1: '#e0c8f0',
+    c2: '#9fd8f0',
+    desc: '吐出的絲會折射光線，牠結的網在夜裡看起來像一小片銀河。',
+    skills: [
+      { level: 1, id: 'venomfang' },
+      { level: 1, id: 'prismweb' },
+      { level: 28, id: 'crystalbeam' },
+      { level: 40, id: 'prismburst' }
+    ]
+  },
+  forgehog: {
+    id: 'forgehog',
+    name: '鍛爐刺豬',
+    element: 'earth',
+    shape: 'beast',
+    base: g(94, 12, 24, 21, 7, 7),
+    growth: g(14, 1.6, 3.1, 2.9, 0.7, 0.6),
+    catchRate: 0.11,
+    size: 1.25,
+    c1: '#8a5a3a',
+    c2: '#e0a850',
+    horns: true,
+    desc: '背上的尖刺燒得通紅，牠躺過的地方連石頭都會被燒出凹痕。',
+    skills: [
+      { level: 1, id: 'stonepunch' },
+      { level: 1, id: 'forgeslam' },
+      { level: 30, id: 'warcry' },
+      { level: 42, id: 'earthwrath' }
+    ]
+  },
+  starhermit: {
+    id: 'starhermit',
+    name: '星砂寄居獸',
+    element: 'water',
+    shape: 'fish',
+    base: g(90, 28, 16, 22, 15, 11),
+    growth: g(13, 4.2, 1.9, 2.9, 2.1, 1.0),
+    catchRate: 0.16,
+    size: 1.15,
+    c1: '#c8b090',
+    c2: '#8fd0e8',
+    desc: '把星砂黏成殼的研究者，每隔一段時間就會換一個更大的家。',
+    skills: [
+      { level: 1, id: 'aquajet' },
+      { level: 1, id: 'starcurrent' },
+      { level: 26, id: 'barrier' },
+      { level: 38, id: 'tidalwave' }
+    ]
+  },
+  gravitoad: {
+    id: 'gravitoad',
+    name: '重力蟾',
+    element: 'water',
+    shape: 'blob',
+    base: g(98, 26, 15, 21, 17, 9),
+    growth: g(14, 3.8, 1.8, 2.8, 2.4, 0.8),
+    catchRate: 0.14,
+    size: 1.2,
+    c1: '#5a7a58',
+    c2: '#a8d0a0',
+    desc: '四周的重力比別處沉重，靠近牠的飛蟲都會直直墜落。',
+    skills: [
+      { level: 1, id: 'aquajet' },
+      { level: 1, id: 'gravpulse' },
+      { level: 28, id: 'frostbreath' },
+      { level: 40, id: 'tsunami' }
+    ]
+  },
+  czarwyrm: {
+    id: 'czarwyrm',
+    name: '帝冠巨龍',
+    element: 'none',
+    shape: 'dragon',
+    base: g(190, 84, 25, 23, 25, 20),
+    growth: g(15, 6.5, 2.4, 2.2, 2.4, 1.8),
+    catchRate: 0.05,
+    size: 1.5,
+    c1: '#d8c060',
+    c2: '#5a4a8a',
+    horns: true,
+    wings: true,
+    desc: '額上頂著一枚星冠，牠振翅的頻率據說與星塵晶石完全相同。',
+    skills: [
+      { level: 1, id: 'dragonbreath' },
+      { level: 1, id: 'crystalbeam' },
+      { level: 30, id: 'aegis' },
+      { level: 42, id: 'creationray' }
+    ]
+  },
+  quasarbat: {
+    id: 'quasarbat',
+    name: '類星蝠',
+    element: 'none',
+    shape: 'bird',
+    base: g(56, 34, 15, 11, 23, 26),
+    growth: g(8, 5.0, 2.0, 1.4, 3.0, 2.4),
+    catchRate: 0.12,
+    size: 1.0,
+    c1: '#3a3a5a',
+    c2: '#c8a8ff',
+    wings: true,
+    desc: '高速飛掠時會拖出一道紫光，遠看像夜空裡一顆會移動的星。',
+    skills: [
+      { level: 1, id: 'gust' },
+      { level: 1, id: 'lullaby' },
+      { level: 24, id: 'slow' },
+      { level: 38, id: 'ringstorm' }
+    ]
+  },
+
+  // ═══════════════════════════════════════════════════════════
+  // 第五章：星海之願（隱藏種族）
+  // ═══════════════════════════════════════════════════════════
+  novadrake: {
+    id: 'novadrake',
+    name: '新星巨龍',
+    element: 'fire',
+    shape: 'dragon',
+    base: g(280, 140, 36, 28, 35, 30),
+    growth: g(18, 8, 2.5, 2.1, 2.7, 2.3),
+    catchRate: 0,
+    hidden: true,
+    size: 1.65,
+    c1: '#ff7a3a',
+    c2: '#ffe08a',
+    horns: true,
+    wings: true,
+    desc: '牠的胸口燃著一枚新星，每一次呼吸都讓周圍的空氣微微發亮。',
+    skills: [
+      { level: 1, id: 'novaflare' },
+      { level: 1, id: 'sunlance' },
+      { level: 1, id: 'soulforge' },
+      { level: 44, id: 'inferno' },
+      { level: 54, id: 'creationhymn' }
+    ]
+  },
+  voidroot: {
+    id: 'voidroot',
+    name: '荒根巨獸',
+    element: 'earth',
+    shape: 'blob',
+    base: g(340, 92, 30, 40, 20, 14),
+    growth: g(22, 5, 2.3, 3.2, 1.6, 1.1),
+    catchRate: 0,
+    hidden: true,
+    size: 1.55,
+    c1: '#4a5a3a',
+    c2: '#b0d090',
+    desc: '據說牠的根盤過整片大陸的地底，只是從來沒人看過另一端。',
+    skills: [
+      { level: 1, id: 'voidbloom' },
+      { level: 1, id: 'earthwrath' },
+      { level: 1, id: 'barrier' },
+      { level: 46, id: 'meteorfall' },
+      { level: 56, id: 'aegis' }
+    ]
+  },
+  cometlord: {
+    id: 'cometlord',
+    name: '彗星之翼',
+    element: 'wind',
+    shape: 'dragon',
+    base: g(250, 155, 30, 25, 36, 38),
+    growth: g(16, 9.5, 2.2, 2.0, 2.9, 2.8),
+    catchRate: 0,
+    hidden: true,
+    size: 1.6,
+    c1: '#8fd8f0',
+    c2: '#e8f0ff',
+    horns: true,
+    wings: true,
+    desc: '劃過天際時會留下一道長長的彗尾，星海的人都會對著牠許願。',
+    skills: [
+      { level: 1, id: 'razorcomet' },
+      { level: 1, id: 'skyrend' },
+      { level: 1, id: 'timebend' },
+      { level: 44, id: 'tempest' },
+      { level: 54, id: 'judgement' }
+    ]
+  },
+  astralwhale: {
+    id: 'astralwhale',
+    name: '星海鯨',
+    element: 'wind',
+    shape: 'fish',
+    base: g(370, 125, 26, 32, 33, 20),
+    growth: g(24, 8, 2.0, 2.6, 2.7, 1.6),
+    catchRate: 0,
+    hidden: true,
+    size: 1.8,
+    c1: '#6a8ab8',
+    c2: '#cfe8ff',
+    desc: '牠游過的地方會泛起一整片星海，聽過牠鳴唱的人都說像回到了故鄉。',
+    skills: [
+      { level: 1, id: 'starcurrent' },
+      { level: 1, id: 'tidalhymn' },
+      { level: 1, id: 'starblessing' },
+      { level: 46, id: 'tsunami' },
+      { level: 56, id: 'creationhymn' }
+    ]
+  },
+  prismwyrm: {
+    id: 'prismwyrm',
+    name: '稜彩幻龍',
+    element: 'none',
+    shape: 'dragon',
+    base: g(270, 165, 30, 26, 39, 30),
+    growth: g(17, 10, 2.2, 2.0, 3.0, 2.3),
+    catchRate: 0,
+    hidden: true,
+    size: 1.65,
+    c1: '#e0b0f0',
+    c2: '#a0f0ff',
+    horns: true,
+    wings: true,
+    desc: '鱗片是一片片凝住的光，牠轉頭時整條龍會換一種顏色。',
+    skills: [
+      { level: 1, id: 'prismburst' },
+      { level: 1, id: 'prismray' },
+      { level: 1, id: 'astralchime' },
+      { level: 44, id: 'zenithray' },
+      { level: 54, id: 'creationray' }
+    ]
+  },
+  sunforger: {
+    id: 'sunforger',
+    name: '烈陽鍛神',
+    element: 'fire',
+    shape: 'human',
+    base: g(300, 115, 40, 31, 27, 23),
+    growth: g(20, 6.5, 2.8, 2.4, 1.9, 1.7),
+    catchRate: 0,
+    hidden: true,
+    size: 1.55,
+    c1: '#f0a84a',
+    c2: '#ffe0a0',
+    horns: true,
+    desc: '手持一把以日光鍛成的錘，牠敲下的每一下都在星海上綻開火花。',
+    skills: [
+      { level: 1, id: 'forgeslam' },
+      { level: 1, id: 'sunlance' },
+      { level: 1, id: 'soulforge' },
+      { level: 44, id: 'novaflare' },
+      { level: 54, id: 'stardeath' }
+    ]
+  },
+  nebulaqueen: {
+    id: 'nebulaqueen',
+    name: '星霧女王',
+    element: 'none',
+    shape: 'bug',
+    base: g(235, 185, 24, 27, 41, 34),
+    growth: g(14, 11, 1.8, 2.0, 3.2, 2.4),
+    catchRate: 0,
+    hidden: true,
+    size: 1.45,
+    c1: '#b8a8e8',
+    c2: '#e8f0ff',
+    desc: '端坐在自己織成的星霧之網中央，所有迷路的星塵最終都會流向她。',
+    skills: [
+      { level: 1, id: 'prismweb' },
+      { level: 1, id: 'prismburst' },
+      { level: 1, id: 'voidhowl' },
+      { level: 44, id: 'ringstorm' },
+      { level: 54, id: 'judgement' }
+    ]
+  },
+  starmother: {
+    id: 'starmother',
+    name: '星海之主',
+    element: 'none',
+    shape: 'human',
+    base: g(430, 225, 41, 39, 46, 35),
+    growth: g(24, 12, 2.6, 2.5, 3.0, 2.2),
+    catchRate: 0,
+    hidden: true,
+    size: 1.75,
+    c1: '#cfe0ff',
+    c2: '#8a7ad8',
+    desc: '星海最深處那個願意聆聽所有願望的存在。她不是光，她是接住光的地方。',
+    skills: [
+      { level: 1, id: 'starblessing' },
+      { level: 1, id: 'zenithray' },
+      { level: 1, id: 'creationhymn' },
+      { level: 50, id: 'judgement' },
+      { level: 60, id: 'stardeath' }
     ]
   }
 };
@@ -2413,7 +3062,18 @@ export const FUSIONS: FusionDef[] = [
   { a: 'czarwyrm', b: 'frostbear', result: 'geoavatar', desc: '兩股厚重力量合成一尊不會倒下的形體。' },
   { a: 'lavadrake', b: 'magmalord', result: 'sunwyrm', desc: '兩團火合在一起，亮得像正午。' },
   { a: 'leviathan', b: 'tidecaller', result: 'tidematron', desc: '整片海把聲音交給了同一個存在。' },
-  { a: 'stormroc', b: 'cloudserpent', result: 'aerielord', desc: '風與雲再也分不開。' }
+  { a: 'stormroc', b: 'cloudserpent', result: 'aerielord', desc: '風與雲再也分不開。' },
+  // ── 星海配方（第五彈） ──
+  { a: 'prismspider', b: 'czarwyrm', result: 'prismwyrm', desc: '王的鱗片與蛛的稜絲交纏，織出一條會變色的龍。' },
+  { a: 'quasarbat', b: 'starhermit', result: 'astralwhale', desc: '一隻總在飛、一隻總在漂，牠們決定一起游進星海。' },
+  { a: 'forgehog', b: 'magmalord', result: 'sunforger', desc: '爐火與地火同源，錘下的火花凝成了一個神。' },
+  { a: 'prismspider', b: 'astralowl', result: 'nebulaqueen', desc: '蛛網接住了星靈的羽毛，網裡長出了一位女王。' },
+  { a: 'meteorfang', b: 'titanrock', result: 'voidroot', desc: '隕鐵的牙扎進大地的骨，根便一直長了下去。' },
+  { a: 'astralowl', b: 'stormroc', result: 'cometlord', desc: '兩對最擅長高飛的翅，在同一個高度相遇。' },
+  { a: 'cometlisk', b: 'phoenixbird', result: 'novadrake', desc: '彗尾穿過不死鳥的火焰，燒得更亮了一層。' },
+  { a: 'gravitoad', b: 'leviathan', result: 'tidematron', desc: '重力壓進海裡，海便有了自己的重心。' },
+  { a: 'nebularat', b: 'luminox', result: 'aurorawisp', desc: '一縷星霧、一點微光，合起來就成了極光。' },
+  { a: 'czarwyrm', b: 'cloudserpent', result: 'chronodrake', desc: '冠上的星與雲中的時，在同一個瞬間疊在一起。' }
 ];
 
 /** 沒有特定配方時，依屬性決定的合成結果（一般種族） */
@@ -3054,6 +3714,136 @@ export const ITEMS: Record<string, ItemDef> = {
     price: 620,
     use: 'none',
     effect: { type: 'gem', elementResist: { fire: 0.15, water: 0.15, wind: 0.15, earth: 0.15 } }
+  },
+
+  // ── 星海道具（第五彈） ──
+  herb_max: {
+    id: 'herb_max',
+    name: '星輝藥',
+    desc: '以星輝淬鍊的頂級藥草，回復單體大量 HP。',
+    price: 320,
+    use: 'both',
+    effect: { type: 'heal', power: 220 }
+  },
+  ether_hi: {
+    id: 'ether_hi',
+    name: '星露精華',
+    desc: '濃縮的星露，回復單體大量 MP。',
+    price: 260,
+    use: 'both',
+    effect: { type: 'mp', power: 90 }
+  },
+  antidote_hi: {
+    id: 'antidote_hi',
+    name: '萬靈解藥',
+    desc: '解除單體身上的所有異常狀態。',
+    price: 180,
+    use: 'both',
+    effect: { type: 'cure' }
+  },
+  phoenix_hi: {
+    id: 'phoenix_hi',
+    name: '不死鳥翎',
+    desc: '使戰鬥不能的同伴以大量 HP 復活。',
+    price: 900,
+    use: 'both',
+    effect: { type: 'revive', power: 0.75 }
+  },
+  elixir_hi: {
+    id: 'elixir_hi',
+    name: '星海秘藥',
+    desc: '星海提煉的秘藥，回復我方全體大量 HP。',
+    price: 700,
+    use: 'both',
+    effect: { type: 'healAll', power: 160 }
+  },
+  bomb_mega: {
+    id: 'bomb_mega',
+    name: '碎星彈',
+    desc: '擊碎一小塊星塵，對敵人造成大量傷害。',
+    price: 520,
+    use: 'battle',
+    effect: { type: 'damage', power: 220 }
+  },
+  weapon_star: {
+    id: 'weapon_star',
+    name: '星輝長劍',
+    desc: '劍身流淌著星輝。裝備後攻擊 +32、魔力 +8。',
+    price: 3200,
+    use: 'none',
+    effect: { type: 'equip', slot: 'weapon', bonus: { atk: 32, mag: 8 } }
+  },
+  weapon_comet: {
+    id: 'weapon_comet',
+    name: '彗星雙刃',
+    desc: '輕盈如彗尾的雙刃。裝備後攻擊 +26、速度 +10。',
+    price: 3000,
+    use: 'none',
+    effect: { type: 'equip', slot: 'weapon', bonus: { atk: 26, spd: 10 } }
+  },
+  armor_star: {
+    id: 'armor_star',
+    name: '星海鎧',
+    desc: '以星海礦砂鍛成的鎧甲。裝備後防禦 +24、HP +80。',
+    price: 3400,
+    use: 'none',
+    effect: { type: 'equip', slot: 'armor', bonus: { def: 24, hp: 80 } }
+  },
+  armor_nebula: {
+    id: 'armor_nebula',
+    name: '星霧法袍',
+    desc: '以星霧編織的長袍。裝備後防禦 +14、魔力 +16、MP +24。',
+    price: 3100,
+    use: 'none',
+    effect: { type: 'equip', slot: 'armor', bonus: { def: 14, mag: 16, mp: 24 } }
+  },
+  acc_star: {
+    id: 'acc_star',
+    name: '星海護符',
+    desc: '封存著一滴星海。裝備後 HP +70、MP +24。',
+    price: 2600,
+    use: 'none',
+    effect: { type: 'equip', slot: 'accessory', bonus: { hp: 70, mp: 24 } }
+  },
+  acc_comet: {
+    id: 'acc_comet',
+    name: '彗星指環',
+    desc: '環面永遠向著一個方向。裝備後速度 +12、攻擊 +8。',
+    price: 2600,
+    use: 'none',
+    effect: { type: 'equip', slot: 'accessory', bonus: { spd: 12, atk: 8 } }
+  },
+  gem_nova: {
+    id: 'gem_nova',
+    name: '新星寶石',
+    desc: '鑲嵌後攻擊 +14。',
+    price: 780,
+    use: 'none',
+    effect: { type: 'gem', bonus: { atk: 14 } }
+  },
+  gem_astral: {
+    id: 'gem_astral',
+    name: '星靈寶石',
+    desc: '鑲嵌後魔力 +14、MP +14。',
+    price: 800,
+    use: 'none',
+    effect: { type: 'gem', bonus: { mag: 14, mp: 14 } }
+  },
+  gem_bulwark: {
+    id: 'gem_bulwark',
+    name: '星壁寶石',
+    desc: '鑲嵌後防禦 +13、HP +30。',
+    price: 820,
+    use: 'none',
+    effect: { type: 'gem', bonus: { def: 13, hp: 30 } }
+  },
+  gem_quick: {
+    id: 'gem_quick',
+    name: '流星寶石',
+    desc: '鑲嵌後速度 +12。',
+    price: 780,
+    use: 'none',
+    effect: { type: 'gem', bonus: { spd: 12 } }
   }
 };
 
@@ -3124,6 +3914,61 @@ export const DEX_REWARDS: DexRewardDef[] = [
       { id: 'gem_ward', n: 1 },
       { id: 'gem_element', n: 1 },
       { id: 'star_core', n: 5 }
+    ]
+  },
+  {
+    id: 'dex63',
+    count: 63,
+    desc: '星輝長劍（武器）、星塵核心 ×4',
+    gold: 5000,
+    exp: 2500,
+    items: [{ id: 'weapon_star', n: 1 }, { id: 'stardust_core', n: 4 }]
+  },
+  {
+    id: 'dex67',
+    count: 67,
+    desc: '星海鎧（防具）、星輝核心 ×3',
+    gold: 6000,
+    exp: 3000,
+    items: [{ id: 'armor_star', n: 1 }, { id: 'star_core', n: 3 }]
+  },
+  {
+    id: 'dex71',
+    count: 71,
+    desc: '彗星雙刃、彗星指環、星海秘藥 ×3',
+    gold: 8000,
+    exp: 4000,
+    items: [{ id: 'weapon_comet', n: 1 }, { id: 'acc_comet', n: 1 }, { id: 'elixir_hi', n: 3 }]
+  },
+  {
+    id: 'dex74',
+    count: 74,
+    desc: '星霧法袍、星海護符、四色星海寶石各 1',
+    gold: 10000,
+    exp: 5000,
+    items: [
+      { id: 'armor_nebula', n: 1 },
+      { id: 'acc_star', n: 1 },
+      { id: 'gem_nova', n: 1 },
+      { id: 'gem_astral', n: 1 },
+      { id: 'gem_bulwark', n: 1 },
+      { id: 'gem_quick', n: 1 }
+    ]
+  },
+  {
+    id: 'dex77',
+    count: 77,
+    desc: '星海全套裝備、星輝核心 ×8、金幣 20000',
+    gold: 20000,
+    exp: 8000,
+    items: [
+      { id: 'weapon_star', n: 1 },
+      { id: 'armor_star', n: 1 },
+      { id: 'acc_star', n: 1 },
+      { id: 'weapon_comet', n: 1 },
+      { id: 'armor_nebula', n: 1 },
+      { id: 'acc_comet', n: 1 },
+      { id: 'star_core', n: 8 }
     ]
   }
 ];
