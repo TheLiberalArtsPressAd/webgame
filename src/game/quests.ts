@@ -2,8 +2,10 @@
  * 委託板（支線委託）
  * 各城鎮的委託板可接取重複性委託，累積進度後回報換取報酬。
  * 進度掛在 GameState 上，並由戰鬥 / 抵達地圖等事件累積。
+ * 另有「討伐委託」：以存檔種子隨機產生，可按 R 換一批。
  */
-import { ITEMS } from './data';
+import { ITEMS, SPECIES, itemName } from './data';
+import { MAPS } from './maps';
 import { addItem, giveExp, itemCount, removeItem, type GameState } from './state';
 
 export interface QuestDef {
@@ -173,6 +175,157 @@ export function questById(id: string): QuestDef | undefined {
   return QUESTS.find((q) => q.id === id);
 }
 
+/** 解析委託：先找隨機委託，再找固定委託 */
+export function resolveQuest(s: GameState, id: string): QuestDef | undefined {
+  return s.bounties?.find((q) => q.id === id) ?? questById(id);
+}
+
+/** 委託板顯示的完整清單（固定 + 隨機） */
+export function allQuests(s: GameState): QuestDef[] {
+  return [...QUESTS, ...(s.bounties ?? [])];
+}
+
+// ─────────────────────────────────────────────────────────────
+// 隨機委託（討伐委託板）
+// ─────────────────────────────────────────────────────────────
+export const BOUNTY_COUNT = 3;
+
+/** 決定性亂數（同一存檔 + 同一批號 → 同一組委託） */
+function mulberry32(seed: number) {
+  let a = seed >>> 0;
+  return () => {
+    a = (a + 0x6d2b79f5) >>> 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+const DELIVER_POOL = ['herb', 'herb_hi', 'manadrop', 'ether', 'stardust', 'stardust_hi', 'antidote'];
+
+const EQUIP_TIERS: string[][] = [
+  ['armor_leather', 'weapon_iron', 'acc_swift'],
+  ['weapon_staff', 'armor_scale', 'acc_vital', 'acc_ward'],
+  ['weapon_claw', 'armor_robe', 'acc_orb'],
+  ['weapon_abyss', 'armor_abyss', 'acc_crown', 'acc_abyss']
+];
+
+function bountyPools() {
+  const species = Object.values(SPECIES)
+    .filter((sp) => sp.catchRate > 0 && !sp.id.startsWith('hero_'))
+    .map((sp) => sp.id);
+  const maps = Object.keys(MAPS).filter((id) => !!MAPS[id].encounters);
+  const items = DELIVER_POOL.filter((id) => !!ITEMS[id]);
+  return { species, maps, items };
+}
+
+function pick<T>(rng: () => number, list: T[]): T {
+  return list[Math.floor(rng() * list.length)];
+}
+
+/** 產生一批隨機委託（不動到狀態） */
+export function generateBounties(seed: number, round: number): QuestDef[] {
+  const rng = mulberry32(seed + round * 977 + 13);
+  const { species, maps, items } = bountyPools();
+  const kinds: QuestDef['kind'][] = ['kill', 'kill', 'catch', 'deliver', 'reach'];
+  // 洗牌
+  for (let i = kinds.length - 1; i > 0; i--) {
+    const j = Math.floor(rng() * (i + 1));
+    [kinds[i], kinds[j]] = [kinds[j], kinds[i]];
+  }
+  const tier = Math.min(EQUIP_TIERS.length - 1, Math.floor(round / 3));
+  const out: QuestDef[] = [];
+  for (let i = 0; i < BOUNTY_COUNT; i++) {
+    const kind = kinds[i % kinds.length];
+    const count = Math.min(8, 2 + Math.floor(round / 2) + (kind === 'deliver' || kind === 'reach' ? 0 : 1));
+    const gold = Math.round((200 + round * 110) * (kind === 'deliver' || kind === 'reach' ? 1.2 : 1));
+    const reward: QuestDef['reward'] = { gold, exp: 60 + round * 70 };
+    // 依批號提供裝備
+    if (rng() < 0.6 && EQUIP_TIERS[tier].length) {
+      reward.items = [{ id: pick(rng, EQUIP_TIERS[tier]), n: 1 }];
+    }
+    let q: QuestDef;
+    if (kind === 'kill' && species.length) {
+      const target = pick(rng, species);
+      q = {
+        id: `rnd${round}_${i}`,
+        title: `${SPECIES[target].name} 討伐`,
+        desc: `討伐 ${count} 隻 ${SPECIES[target].name}，維護旅人安全。`,
+        kind: 'kill',
+        target,
+        count,
+        reward
+      };
+    } else if (kind === 'catch' && species.length) {
+      const target = pick(rng, species);
+      q = {
+        id: `rnd${round}_${i}`,
+        title: `${SPECIES[target].name} 捕獲委託`,
+        desc: `活體研究需要 ${SPECIES[target].name}，請以封印石捕捉 ${count} 隻。`,
+        kind: 'catch',
+        target,
+        count,
+        reward
+      };
+    } else if (kind === 'deliver' && items.length) {
+      const target = pick(rng, items);
+      q = {
+        id: `rnd${round}_${i}`,
+        title: `${itemName(target)} 徵集`,
+        desc: `徵集 ${itemName(target)} ×${count}，供港口的旅人使用。`,
+        kind: 'deliver',
+        target,
+        count,
+        reward
+      };
+    } else if (maps.length) {
+      const target = pick(rng, maps);
+      q = {
+        id: `rnd${round}_${i}`,
+        title: `踏查 ${MAPS[target].name}`,
+        desc: `前往 ${MAPS[target].name} 確認路況，並回報。`,
+        kind: 'reach',
+        target,
+        count: 1,
+        reward
+      };
+    } else {
+      const target = pick(rng, species.length ? species : ['dusthare']);
+      q = {
+        id: `rnd${round}_${i}`,
+        title: `${SPECIES[target]?.name ?? target} 討伐`,
+        desc: '討伐指定的幻獸。',
+        kind: 'kill',
+        target,
+        count,
+        reward
+      };
+    }
+    out.push(q);
+  }
+  return out;
+}
+
+/** 若目前沒有隨機委託則產生一批 */
+export function ensureBounties(s: GameState) {
+  if (!Array.isArray(s.bounties) || s.bounties.length === 0) {
+    s.bounties = generateBounties(s.bountySeed ?? 0, s.bountyRound ?? 0);
+  }
+}
+
+/** 換一批隨機委託（清除舊批次的進度） */
+export function rerollBounties(s: GameState): number {
+  for (const old of s.bounties ?? []) {
+    delete s.questProgress[old.id];
+    delete s.questClaimed[old.id];
+    delete s.questClears[old.id];
+    s.questTaken = s.questTaken.filter((x) => x !== old.id);
+  }
+  s.bountyRound = (s.bountyRound ?? 0) + 1;
+  s.bounties = generateBounties(s.bountySeed ?? 0, s.bountyRound);
+  return s.bountyRound;
+}
+
 export function isTaken(s: GameState, id: string): boolean {
   return s.questTaken.includes(id);
 }
@@ -246,7 +399,7 @@ export function claimQuest(s: GameState, q: QuestDef): string | null {
 // ─────────────────────────────────────────────────────────────
 function bumpFor(s: GameState, kind: QuestDef['kind'], matches: (q: QuestDef) => number) {
   for (const id of [...s.questTaken]) {
-    const q = questById(id);
+    const q = resolveQuest(s, id);
     if (!q || q.kind !== kind) continue;
     const n = matches(q);
     if (n > 0) s.questProgress[q.id] = Math.min(q.count, (s.questProgress[q.id] ?? 0) + n);
@@ -271,7 +424,7 @@ export function questOnArrive(s: GameState, mapId: string) {
 /** 進行中的委託（供任務提示用） */
 export function activeQuestSummary(s: GameState): string[] {
   return s.questTaken.map((id) => {
-    const q = questById(id);
+    const q = resolveQuest(s, id);
     if (!q) return '';
     return `${q.title}（${questProgress(s, q)}/${q.count}）`;
   }).filter(Boolean);

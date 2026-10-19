@@ -55,9 +55,19 @@ function normalizeSave(parsed: GameState, config: GameConfig): GameState | null 
   parsed.inventory = parsed.inventory ?? {};
   parsed.flags = parsed.flags ?? {};
   parsed.dex = parsed.dex ?? {};
+  parsed.dexRewards = Array.isArray(parsed.dexRewards) ? parsed.dexRewards : [];
+  parsed.bounties = Array.isArray(parsed.bounties) ? parsed.bounties : [];
+  parsed.bountyRound = Number(parsed.bountyRound) || 0;
+  parsed.bountySeed = Number(parsed.bountySeed) || Math.floor(Math.random() * 0x7fffffff);
+  parsed.questTaken = Array.isArray(parsed.questTaken) ? parsed.questTaken : [];
+  parsed.questProgress = parsed.questProgress ?? {};
+  parsed.questClaimed = parsed.questClaimed ?? {};
+  parsed.questClears = parsed.questClears ?? {};
+  parsed.lastTown = parsed.lastTown ?? 'village';
   for (const unit of [...parsed.party, ...parsed.storage]) {
     unit.buffs = Array.isArray(unit.buffs) ? unit.buffs : [];
     unit.skills = Array.isArray(unit.skills) ? unit.skills : [];
+    unit.equip = unit.equip ?? {};
     unit.level = Math.max(1, Number(unit.level) || 1);
     unit.exp = Math.max(0, Number(unit.exp) || 0);
     const species = config.species[unit.speciesId];
@@ -166,7 +176,11 @@ export function renderSaveTab(config: GameConfig): HTMLElement {
       questTaken: [],
       questProgress: {},
       questClaimed: {},
-      questClears: {}
+      questClears: {},
+      dexRewards: [],
+      bounties: [],
+      bountyRound: 0,
+      bountySeed: Math.floor(Math.random() * 0x7fffffff)
     };
     save.party.forEach((unit, i) => (unit.uid = i + 1));
     setDirty(true);

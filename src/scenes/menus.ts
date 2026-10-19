@@ -1,35 +1,42 @@
 import { VIEW_H, VIEW_W, scenes, type Scene } from '../engine/scene';
 import * as input from '../engine/input';
 import { bar, drawBeast, drawHero, label, panel, shade, wrapText } from '../engine/draw';
-import { AILMENT_COLOR, AILMENT_ICON, AILMENT_NAME, ELEMENT_COLOR, ELEMENT_NAME, ITEMS, SKILLS, SPECIES, dexNumber, itemName } from '../game/data';
+import { AILMENT_COLOR, AILMENT_ICON, AILMENT_NAME, DEX_REWARDS, ELEMENT_COLOR, ELEMENT_NAME, EQUIP_SLOT_NAME, ITEMS, SKILLS, SPECIES, STAT_KEYS, STAT_NAME, dexNumber, dexTotal, equipDelta, itemName, passiveOfUnit } from '../game/data';
 import { session } from '../game/session';
 import { MAPS } from '../game/maps';
 import {
   MAX_PARTY,
   addItem,
+  claimDexRewards,
   deleteSave,
+  dexCollected,
+  equipItem,
   hasSave,
   inventoryList,
   loadGame,
   newGame,
   removeItem,
-  saveGame
+  saveGame,
+  unequipSlot
 } from '../game/state';
 import { SHOP_STOCK, questHint } from '../game/story';
 import {
-  QUESTS,
   abandonQuest,
+  allQuests,
   canTake,
   claimQuest,
+  ensureBounties,
   isComplete,
   isFinished,
   isTaken,
   questProgress,
+  rerollBounties,
   takeQuest,
   type QuestDef
 } from '../game/quests';
 import { RULES } from '../game/rules';
-import type { Unit } from '../game/types';
+import { audio } from '../engine/audio';
+import type { EquipSlot, Stats, Unit } from '../game/types';
 
 // ─────────────────────────────────────────────────────────────
 // 共用：星空背景
@@ -93,6 +100,10 @@ export class TitleScene implements Scene {
     { id: 'clear', text: '刪除存檔' }
   ];
 
+  enter() {
+    audio.setBgm('title');
+  }
+
   update(dt: number) {
     this.time += dt;
     if (this.busy) return;
@@ -111,13 +122,20 @@ export class TitleScene implements Scene {
       }
       return;
     }
-    if (input.nav('arrowup', dt) || input.nav('w', dt)) this.idx = (this.idx - 1 + this.items.length) % this.items.length;
-    if (input.nav('arrowdown', dt) || input.nav('s', dt)) this.idx = (this.idx + 1) % this.items.length;
+    if (input.nav('arrowup', dt) || input.nav('w', dt)) {
+      this.idx = (this.idx - 1 + this.items.length) % this.items.length;
+      audio.play('select');
+    }
+    if (input.nav('arrowdown', dt) || input.nav('s', dt)) {
+      this.idx = (this.idx + 1) % this.items.length;
+      audio.play('select');
+    }
 
     const has = hasSave();
     if (!has && (this.items[this.idx].id === 'continue')) this.idx = (this.idx + 1) % this.items.length;
 
     if (input.consume('space', 'enter')) {
+      audio.play('confirm');
       const id = this.items[this.idx].id;
       if (id === 'continue' && !has) return;
       if (id === 'new') void this.startNew();
@@ -184,13 +202,19 @@ export class TitleScene implements Scene {
     drawBeast(ctx, 480, 300, 1.1, 1, { shape: 'blob', c1: '#efe6f5', c2: '#c9b6e8', size: 1 }, this.time + 2);
 
     if (this.help) {
-      panel(ctx, 200, 100, 560, 400, { fill: 'rgba(8,13,26,0.96)', border: 'rgba(150,190,255,0.6)', radius: 12 });
-      label(ctx, '操作說明', 480, 140, { size: 22, align: 'center', color: '#ffe6a8', bold: true });
+      panel(ctx, 200, 60, 560, 480, { fill: 'rgba(8,13,26,0.96)', border: 'rgba(150,190,255,0.6)', radius: 12 });
+      label(ctx, '操作說明', 480, 100, { size: 22, align: 'center', color: '#ffe6a8', bold: true });
       const lines = [
         '【探索】',
         '　方向鍵 / WASD　在等角地圖上走動（四方向對應畫面斜向）',
         '　空白鍵 / Enter　與前方的人或告示交談',
-        '　Esc　開啟選單（隊伍 / 道具 / 圖鑑 / 系統）',
+        '　Esc　開啟選單（隊伍 / 道具 / 裝備 / 圖鑑 / 系統）',
+        '',
+        '【成長】',
+        '　在「裝備」頁籤為幻獸穿戴武器、防具與飾品',
+        '　收集越多幻獸，可在「圖鑑」領取階段獎勵',
+        '　委託板按 R 可更換一批隨機委託',
+        '　系統頁籤可切換音效開關',
         '',
         '【戰鬥】',
         '　↑↓ 選擇指令，空白鍵確定，Esc 返回上層',
@@ -203,7 +227,7 @@ export class TitleScene implements Scene {
         '　按 空白鍵 關閉'
       ];
       lines.forEach((l, i) =>
-        label(ctx, l, 236, 178 + i * 22, {
+        label(ctx, l, 236, 130 + i * 20, {
           size: 13,
           color: l.startsWith('【') ? '#8ed0ff' : '#d8e4ff'
         })
@@ -255,12 +279,14 @@ export class TitleScene implements Scene {
 export class MenuScene implements Scene {
   tab = 0;
   time = 0;
-  tabs = ['隊伍', '道具', '圖鑑', '系統'];
+  tabs = ['隊伍', '道具', '裝備', '圖鑑', '系統'];
   unitIdx = 0;
   itemIdx = 0;
+  equipSlotIdx = 0;
+  pickIdx = 0;
   dexIdx = 0;
   sysIdx = 0;
-  sub: 'none' | 'itemTarget' = 'none';
+  sub: 'none' | 'itemTarget' | 'equipPick' = 'none';
   targetIdx = 0;
   message = '';
   messageT = 0;
@@ -272,6 +298,16 @@ export class MenuScene implements Scene {
 
   private units(): Unit[] {
     return [...session.state.party, ...session.state.storage];
+  }
+
+  /** 指定欄位可裝備的道具（背包內） */
+  private equipCandidates(slot: 'weapon' | 'armor' | 'accessory'): string[] {
+    return inventoryList(session.state)
+      .map((e) => e.id)
+      .filter((id) => {
+        const def = ITEMS[id];
+        return !!def && def.effect.type === 'equip' && def.effect.slot === slot;
+      });
   }
 
   update(dt: number) {
@@ -296,17 +332,26 @@ export class MenuScene implements Scene {
       return;
     }
 
+    if (this.sub === 'equipPick') {
+      this.updateEquipPick(dt);
+      return;
+    }
+
     if (input.consume('escape')) {
+      audio.play('cancel');
       this.close();
       return;
     }
+    const prevTab = this.tab;
     if (input.consume('q', 'arrowleft', 'a')) this.tab = (this.tab - 1 + this.tabs.length) % this.tabs.length;
     if (input.consume('e', 'arrowright', 'd')) this.tab = (this.tab + 1) % this.tabs.length;
     if (input.consume('tab')) this.tab = (this.tab + 1) % this.tabs.length;
+    if (this.tab !== prevTab) audio.play('select');
 
     if (this.tab === 0) this.updateParty(dt);
     else if (this.tab === 1) this.updateItems(dt);
-    else if (this.tab === 2) this.updateDex(dt);
+    else if (this.tab === 2) this.updateEquip(dt);
+    else if (this.tab === 3) this.updateDex(dt);
     else this.updateSystem(dt);
   }
 
@@ -358,12 +403,69 @@ export class MenuScene implements Scene {
         this.flash('這個道具只能在戰鬥中使用。');
         return;
       }
+      if (def.effect.type === 'equip') {
+        this.flash('裝備道具：請切換到「裝備」頁籤穿戴。');
+        return;
+      }
       if (def.use === 'none') {
         this.flash('這個道具沒有使用效果，可以賣給商人。');
         return;
       }
       this.sub = 'itemTarget';
       this.targetIdx = 0;
+    }
+  }
+
+  // ── 裝備 ─────────────────────────────────────────────────
+  private updateEquip(dt: number) {
+    const list = this.units();
+    if (list.length === 0) return;
+    if (this.unitIdx >= list.length) this.unitIdx = 0;
+    if (input.nav('arrowup', dt) || input.nav('w', dt)) this.unitIdx = (this.unitIdx - 1 + list.length) % list.length;
+    if (input.nav('arrowdown', dt) || input.nav('s', dt)) this.unitIdx = (this.unitIdx + 1) % list.length;
+    if (input.nav('arrowleft', dt)) this.equipSlotIdx = (this.equipSlotIdx + 2) % 3;
+    if (input.nav('arrowright', dt)) this.equipSlotIdx = (this.equipSlotIdx + 1) % 3;
+    if (input.consume('space', 'enter')) {
+      this.sub = 'equipPick';
+      this.pickIdx = 0;
+    }
+  }
+
+  private updateEquipPick(dt: number) {
+    const u = this.units()[this.unitIdx];
+    if (!u) {
+      this.sub = 'none';
+      return;
+    }
+    const slot = (['weapon', 'armor', 'accessory'] as const)[this.equipSlotIdx];
+    const cands = this.equipCandidates(slot);
+    const cur = u.equip?.[slot];
+    // 第 0 項為「卸下」（無裝備時不可選）
+    const total = (cur ? 1 : 0) + cands.length;
+    if (total === 0) {
+      this.sub = 'none';
+      this.flash('背包裡沒有這個欄位的裝備。');
+      return;
+    }
+    if (input.nav('arrowup', dt) || input.nav('w', dt)) this.pickIdx = (this.pickIdx - 1 + total) % total;
+    if (input.nav('arrowdown', dt) || input.nav('s', dt)) this.pickIdx = (this.pickIdx + 1) % total;
+    if (input.consume('escape')) {
+      this.sub = 'none';
+      return;
+    }
+    if (input.consume('space', 'enter')) {
+      if (cur && this.pickIdx === 0) {
+        const removed = unequipSlot(session.state, u, slot);
+        audio.play('cancel');
+        this.flash(`${u.name} 卸下了 ${ITEMS[removed ?? '']?.name ?? '裝備'}。`);
+      } else {
+        const id = cands[this.pickIdx - (cur ? 1 : 0)];
+        if (id && equipItem(session.state, u, id)) {
+          audio.play('confirm');
+          this.flash(`${u.name} 裝備了 ${ITEMS[id]?.name ?? id}。`);
+        }
+      }
+      this.sub = 'none';
     }
   }
 
@@ -450,20 +552,34 @@ export class MenuScene implements Scene {
   }
 
   private updateDex(dt: number) {
+    if (input.consume('space', 'enter')) {
+      const got = claimDexRewards(session.state);
+      audio.play(got.length ? 'levelup' : 'cancel');
+      this.flash(got.length ? `領取了 ${got.length} 項圖鑑獎勵！` : '目前沒有可領取的圖鑑獎勵。');
+    }
     if (this.dexList.length === 0) return;
     if (input.nav('arrowup', dt) || input.nav('w', dt)) this.dexIdx = (this.dexIdx - 1 + this.dexList.length) % this.dexList.length;
     if (input.nav('arrowdown', dt) || input.nav('s', dt)) this.dexIdx = (this.dexIdx + 1) % this.dexList.length;
   }
 
   private updateSystem(dt: number) {
-    const items = ['儲存進度', '重新載入存檔', '回到標題畫面'];
-    if (input.nav('arrowup', dt) || input.nav('w', dt)) this.sysIdx = (this.sysIdx - 1 + items.length) % items.length;
-    if (input.nav('arrowdown', dt) || input.nav('s', dt)) this.sysIdx = (this.sysIdx + 1) % items.length;
+    const items = this.systemItems();
+    if (this.sysIdx >= items.length) this.sysIdx = 0;
+    if (input.nav('arrowup', dt) || input.nav('w', dt)) {
+      this.sysIdx = (this.sysIdx - 1 + items.length) % items.length;
+      audio.play('select');
+    }
+    if (input.nav('arrowdown', dt) || input.nav('s', dt)) {
+      this.sysIdx = (this.sysIdx + 1) % items.length;
+      audio.play('select');
+    }
     if (input.consume('space', 'enter')) {
       if (this.sysIdx === 0) {
+        audio.play('confirm');
         const ok = saveGame(session.state);
         this.flash(ok ? '已儲存進度。' : '儲存失敗（瀏覽器儲存空間可能被停用）。');
       } else if (this.sysIdx === 1) {
+        audio.play('confirm');
         const s = loadGame();
         if (s) {
           session.state = s;
@@ -473,10 +589,18 @@ export class MenuScene implements Scene {
         } else {
           this.flash('找不到存檔。');
         }
+      } else if (this.sysIdx === 2) {
+        const muted = audio.toggleMute();
+        this.flash(muted ? '已關閉音效與音樂。' : '已開啟音效與音樂。');
       } else {
+        audio.play('cancel');
         void this.toTitle();
       }
     }
+  }
+
+  private systemItems(): string[] {
+    return ['儲存進度', '重新載入存檔', audio.muted ? '音效：關閉' : '音效：開啟', '回到標題畫面'];
   }
 
   private async toTitle() {
@@ -530,7 +654,8 @@ export class MenuScene implements Scene {
     const cy = by + 66;
     if (this.tab === 0) this.renderParty(ctx, bx + 20, cy, bw - 40, bh - 92);
     else if (this.tab === 1) this.renderItems(ctx, bx + 20, cy, bw - 40, bh - 92);
-    else if (this.tab === 2) this.renderDex(ctx, bx + 20, cy, bw - 40, bh - 92);
+    else if (this.tab === 2) this.renderEquip(ctx, bx + 20, cy, bw - 40, bh - 92);
+    else if (this.tab === 3) this.renderDex(ctx, bx + 20, cy, bw - 40, bh - 92);
     else this.renderSystem(ctx, bx + 20, cy, bw - 40, bh - 92);
 
     if (this.messageT > 0) {
@@ -725,13 +850,27 @@ export class MenuScene implements Scene {
       label(ctx, def.name, dx + 20, y + 34, { size: 20, color: '#ffe6a8', bold: true });
       const lines = wrapText(ctx, def.desc, dw - 48, 13);
       lines.forEach((l, i) => label(ctx, l, dx + 20, y + 64 + i * 22, { size: 13, color: '#c8d4e8' }));
-      label(
-        ctx,
-        def.use === 'battle' ? '（僅戰鬥中可使用）' : def.use === 'none' ? '（無使用效果，可販售）' : '（場上 / 戰鬥中皆可使用）',
-        dx + 20,
-        y + 64 + lines.length * 22 + 14,
-        { size: 12, color: '#8a98b0' }
-      );
+      const uy = y + 64 + lines.length * 22 + 8;
+      if (def.effect.type === 'equip') {
+        label(ctx, `裝備欄位：${EQUIP_SLOT_NAME[def.effect.slot]}`, dx + 20, uy, { size: 13, color: '#9fe0ff' });
+        const bits: string[] = [];
+        for (const k of STAT_KEYS) {
+          const b = def.effect.bonus?.[k];
+          if (b) bits.push(`${STAT_NAME[k]} +${b}`);
+          const m = def.effect.mult?.[k];
+          if (m) bits.push(`${STAT_NAME[k]} +${Math.round(m * 100)}%`);
+        }
+        if (bits.length) label(ctx, bits.join('　'), dx + 20, uy + 22, { size: 12, color: '#8ef0a8' });
+        label(ctx, '在「裝備」頁籤選擇幻獸即可穿戴。', dx + 20, uy + 48, { size: 12, color: '#8a98b0' });
+      } else {
+        label(
+          ctx,
+          def.use === 'battle' ? '（僅戰鬥中可使用）' : def.use === 'none' ? '（無使用效果，可販售）' : '（場上 / 戰鬥中皆可使用）',
+          dx + 20,
+          uy + 6,
+          { size: 12, color: '#8a98b0' }
+        );
+      }
       label(ctx, `售價 ${Math.floor(def.price * RULES.sellRatio)} G`, dx + 20, y + h - 40, {
         size: 13,
         color: '#ffd76a'
@@ -743,10 +882,148 @@ export class MenuScene implements Scene {
     });
   }
 
+  private renderEquip(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number) {
+    const list = this.units();
+    const lw = 280;
+    panel(ctx, x, y, lw, h, { fill: 'rgba(8,13,26,0.8)', radius: 8 });
+    label(ctx, '選擇幻獸', x + 14, y + 22, { size: 12, color: '#8ed0ff', bold: true });
+
+    list.forEach((u, i) => {
+      const ly = y + 36 + i * 30;
+      if (ly > y + h - 10) return;
+      const sel = i === this.unitIdx;
+      if (sel) {
+        panel(ctx, x + 8, ly - 2, lw - 16, 26, {
+          radius: 5,
+          fill: 'rgba(70,120,220,0.4)',
+          border: 'rgba(180,220,255,0.7)',
+          borderWidth: 1
+        });
+      }
+      ctx.fillStyle = ELEMENT_COLOR[u.element];
+      ctx.beginPath();
+      ctx.arc(x + 24, ly + 11, 6, 0, Math.PI * 2);
+      ctx.fill();
+      label(ctx, u.name, x + 38, ly + 16, { size: 14, color: '#e8eefc', bold: true });
+      label(ctx, `Lv${u.level}`, x + lw - 20, ly + 16, { size: 12, align: 'right', color: '#a8b6cc' });
+    });
+
+    const u = list[this.unitIdx];
+    if (!u) return;
+    const dx = x + lw + 16;
+    const dw = w - lw - 16;
+    panel(ctx, dx, y, dw, h, { fill: 'rgba(8,13,26,0.8)', radius: 8 });
+
+    label(ctx, `${u.name} 的裝備`, dx + 20, y + 30, { size: 18, color: '#ffe6a8', bold: true });
+    const p = passiveOfUnit(u);
+    if (p) {
+      label(ctx, `被動：${p.name}`, dx + 20, y + 52, { size: 12, color: '#9fe0ff' });
+      label(ctx, wrapText(ctx, p.desc, dw - 60, 11)[0] ?? '', dx + 20, y + 68, { size: 11, color: '#8a98b0' });
+    }
+
+    const slots: EquipSlot[] = ['weapon', 'armor', 'accessory'];
+    const sy = y + 100;
+    slots.forEach((slot, i) => {
+      const sel = this.sub === 'none' && i === this.equipSlotIdx;
+      const yy = sy + i * 42;
+      panel(ctx, dx + 16, yy - 6, dw - 32, 36, {
+        radius: 6,
+        fill: sel ? 'rgba(70,120,220,0.4)' : 'rgba(16,24,42,0.7)',
+        border: sel ? 'rgba(180,220,255,0.8)' : 'rgba(90,120,170,0.3)'
+      });
+      label(ctx, EQUIP_SLOT_NAME[slot], dx + 30, yy + 16, { size: 13, color: '#8ed0ff', bold: true });
+      const id = u.equip?.[slot];
+      const def = id ? ITEMS[id] : null;
+      label(ctx, def ? def.name : '－ 未裝備 －', dx + 110, yy + 16, {
+        size: 14,
+        color: def ? '#e8eefc' : '#8a98b0'
+      });
+      if (def && def.effect.type === 'equip') {
+        const bits: string[] = [];
+        for (const k of STAT_KEYS) {
+          const b = def.effect.bonus?.[k];
+          if (b) bits.push(`${STAT_NAME[k]}+${b}`);
+          const m = def.effect.mult?.[k];
+          if (m) bits.push(`${STAT_NAME[k]}+${Math.round(m * 100)}%`);
+        }
+        if (bits.length) label(ctx, bits.join(' '), dx + dw - 24, yy + 16, { size: 11, align: 'right', color: '#8ef0a8' });
+      }
+    });
+
+    // 能力總覽（含裝備加值）
+    const dy = sy + slots.length * 42 + 16;
+    const delta = equipDelta(u);
+    label(ctx, '目前能力', dx + 20, dy, { size: 12, color: '#8ed0ff', bold: true });
+    const rows: [string, number][] = [
+      ['HP', u.max.hp],
+      ['MP', u.max.mp],
+      ['攻擊', u.max.atk],
+      ['防禦', u.max.def],
+      ['魔力', u.max.mag],
+      ['速度', u.max.spd]
+    ];
+    rows.forEach((r, i) => {
+      const col = i % 2;
+      const row = Math.floor(i / 2);
+      const sx = dx + 20 + col * (dw / 2 - 20);
+      const yy = dy + 22 + row * 22;
+      label(ctx, r[0], sx, yy, { size: 12, color: '#8a98b0' });
+      label(ctx, `${r[1]}`, sx + 46, yy, { size: 13, color: '#e8eefc', bold: true });
+    });
+
+    const keyOf: Record<number, keyof Stats> = { 0: 'hp', 1: 'mp', 2: 'atk', 3: 'def', 4: 'mag', 5: 'spd' };
+    rows.forEach((_r, i) => {
+      const d = delta[keyOf[i]];
+      if (!d) return;
+      const col = i % 2;
+      const row = Math.floor(i / 2);
+      const sx = dx + 20 + col * (dw / 2 - 20);
+      label(ctx, `+${d}`, sx + 96, dy + 22 + row * 22, { size: 12, color: '#8ef0a8' });
+    });
+
+    label(ctx, '↑↓ 選幻獸　←→ 選欄位　空白鍵 換裝　Esc 關閉', dx + 20, y + h - 16, {
+      size: 11,
+      color: '#8a98b0'
+    });
+
+    // 換裝選單
+    if (this.sub === 'equipPick') {
+      const slot = slots[this.equipSlotIdx];
+      const cur = u.equip?.[slot];
+      const cands = this.equipCandidates(slot);
+      const total = (cur ? 1 : 0) + cands.length;
+      const pw = 420;
+      const ph = Math.min(h - 40, 70 + Math.max(1, total) * 34);
+      const px = dx + (dw - pw) / 2;
+      const py = y + 40;
+      panel(ctx, px, py, pw, ph, { fill: 'rgba(6,10,20,0.98)', border: 'rgba(180,220,255,0.8)', radius: 10 });
+      label(ctx, `${EQUIP_SLOT_NAME[slot]} － 選擇裝備`, px + pw / 2, py + 26, {
+        size: 15,
+        align: 'center',
+        color: '#ffe6a8',
+        bold: true
+      });
+      let row = 0;
+      if (cur) {
+        const sel = this.pickIdx === 0;
+        if (sel) panel(ctx, px + 12, py + 42 + row * 34 - 2, pw - 24, 28, { radius: 5, fill: 'rgba(200,90,90,0.35)', border: 'rgba(255,180,180,0.7)' });
+        label(ctx, '卸下裝備', px + 30, py + 42 + row * 34 + 16, { size: 14, color: '#ffb0b0', bold: sel });
+        row++;
+      }
+      cands.forEach((id, i) => {
+        const sel = this.pickIdx === (cur ? 1 : 0) + i;
+        if (sel) panel(ctx, px + 12, py + 42 + row * 34 - 2, pw - 24, 28, { radius: 5, fill: 'rgba(70,120,220,0.5)', border: 'rgba(180,220,255,0.8)' });
+        label(ctx, itemName(id), px + 30, py + 42 + row * 34 + 16, { size: 14, color: '#e8eefc', bold: sel });
+        row++;
+      });
+      label(ctx, '空白鍵 確定　Esc 取消', px + pw / 2, py + ph - 14, { size: 11, align: 'center', color: '#8a98b0' });
+    }
+  }
+
   private renderDex(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number) {
     const lw = 340;
     panel(ctx, x, y, lw, h, { fill: 'rgba(8,13,26,0.8)', radius: 8 });
-    label(ctx, `幻獸圖鑑　${this.dexList.length} / ${Object.keys(SPECIES).length}`, x + 14, y + 22, {
+    label(ctx, `幻獸圖鑑　${dexCollected(session.state)} / ${dexTotal()}`, x + 14, y + 22, {
       size: 12,
       color: '#8ed0ff',
       bold: true
@@ -778,6 +1055,30 @@ export class MenuScene implements Scene {
         color: '#a8b6cc'
       });
     });
+
+    // 收集獎勵進度
+    const rewards = DEX_REWARDS;
+    const claimed = rewards.filter((r) => (session.state.dexRewards ?? []).includes(r.id)).length;
+    const collected = dexCollected(session.state);
+    const next = rewards.find((r) => !(session.state.dexRewards ?? []).includes(r.id));
+    panel(ctx, x + 8, y + h - 56, lw - 16, 46, { radius: 6, fill: 'rgba(20,30,52,0.7)', border: 'rgba(90,120,170,0.3)' });
+    label(ctx, `收集獎勵　${claimed} / ${rewards.length}`, x + 18, y + h - 36, {
+      size: 12,
+      color: '#ffd76a',
+      bold: true
+    });
+    if (next) {
+      const ready = collected >= next.count;
+      label(ctx, `${next.count} 種：${next.desc}`, x + 18, y + h - 20, { size: 11, color: '#c8d4e8' });
+      label(ctx, ready ? '可領取（空白鍵）' : `${collected}/${next.count}`, x + lw - 18, y + h - 20, {
+        size: 11,
+        align: 'right',
+        color: ready ? '#8ef0a8' : '#8a98b0',
+        bold: ready
+      });
+    } else {
+      label(ctx, '全部獎勵已領取！', x + 18, y + h - 20, { size: 11, color: '#8ef0a8' });
+    }
 
     const dx = x + lw + 16;
     const dw = w - lw - 16;
@@ -842,7 +1143,7 @@ export class MenuScene implements Scene {
 
   private renderSystem(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number) {
     panel(ctx, x, y, w, h, { fill: 'rgba(8,13,26,0.8)', radius: 8 });
-    const items = ['儲存進度', '重新載入存檔', '回到標題畫面'];
+    const items = this.systemItems();
     label(ctx, '系統', x + 20, y + 30, { size: 16, color: '#8ed0ff', bold: true });
     items.forEach((t, i) => {
       const sel = i === this.sysIdx;
@@ -919,6 +1220,7 @@ export class ShopScene implements Scene {
         }
         s.gold -= def.price;
         addItem(s, id, 1);
+        audio.play('coin');
         this.flash(`購買了 ${def.name}。`);
       } else {
         const id = list[this.idx];
@@ -927,6 +1229,7 @@ export class ShopScene implements Scene {
         const price = Math.floor(def.price * RULES.sellRatio);
         if (!removeItem(s, id, 1)) return;
         s.gold += price;
+        audio.play('coin');
         this.flash(`賣出了 ${def.name}，獲得 ${price} G。`);
         const nl = this.list();
         if (nl.length === 0) this.idx = 0;
@@ -1055,11 +1358,13 @@ export class QuestScene implements Scene {
   scroll = 0;
   static readonly VISIBLE = 7;
 
-  /** 進行中優先，其次可接取 */
+  /** 進行中優先，其次可接取（固定委託 + 隨機委託） */
   private list(): QuestDef[] {
     const s = session.state;
-    const taken = QUESTS.filter((q) => isTaken(s, q.id));
-    const avail = QUESTS.filter((q) => canTake(s, q));
+    ensureBounties(s);
+    const all = allQuests(s);
+    const taken = all.filter((q) => isTaken(s, q.id));
+    const avail = all.filter((q) => canTake(s, q));
     return [...taken, ...avail];
   }
 
@@ -1090,6 +1395,14 @@ export class QuestScene implements Scene {
 
     const s = session.state;
     const q = list[this.idx];
+
+    if (input.consume('r')) {
+      const round = rerollBounties(s);
+      this.flash(`換上新的一批隨機委託（第 ${round} 批）。`);
+      this.idx = 0;
+      this.scroll = 0;
+      return;
+    }
 
     if (input.consume('x')) {
       if (isTaken(s, q.id)) {
@@ -1137,12 +1450,16 @@ export class QuestScene implements Scene {
 
     const s = session.state;
     label(ctx, '委託板', bx + 26, by + 40, { size: 22, color: '#ffe6a8', bold: true });
-    label(ctx, '↑↓ 選擇　空白鍵 接取／回報　X 放棄　Esc 離開', bx + bw - 26, by + 40, {
+    label(ctx, '↑↓ 選擇　空白鍵 接取／回報　X 放棄　R 換一批隨機委託　Esc 離開', bx + bw - 26, by + 40, {
       size: 11,
       align: 'right',
       color: 'rgba(150,170,210,0.85)'
     });
     label(ctx, `${s.gold} G`, bx + bw - 26, by + 64, { size: 16, align: 'right', color: '#ffd76a', bold: true });
+    label(ctx, `隨機委託第 ${s.bountyRound ?? 0} 批`, bx + 26, by + 64, {
+      size: 12,
+      color: '#9fb0cc'
+    });
 
     const list = this.list();
     const rowY = by + 96;
@@ -1163,6 +1480,7 @@ export class QuestScene implements Scene {
       const done = taken && isComplete(s, q);
       const tag = !taken ? '可接取' : done ? '可回報' : '進行中';
       const tagColor = !taken ? '#8ef0a8' : done ? '#ffd76a' : '#8ed0ff';
+      const isBounty = q.id.startsWith('rnd');
 
       if (sel) {
         panel(ctx, bx + 30, y - 18, lw - 16, 30, {
@@ -1172,8 +1490,8 @@ export class QuestScene implements Scene {
           borderWidth: 1
         });
       }
-      label(ctx, `[${tag}]`, bx + 42, y, { size: 12, color: tagColor, bold: true });
-      label(ctx, q.title, bx + 106, y, { size: 15, color: sel ? '#ffffff' : '#dfe6f5', bold: sel });
+      label(ctx, isBounty ? `[隨機·${tag}]` : `[${tag}]`, bx + 42, y, { size: 12, color: tagColor, bold: true });
+      label(ctx, q.title, bx + (isBounty ? 156 : 106), y, { size: 15, color: sel ? '#ffffff' : '#dfe6f5', bold: sel });
       label(ctx, taken ? `${questProgress(s, q)}/${q.count}` : `${q.count} 次`, bx + 30 + lw - 26, y, {
         size: 13,
         align: 'right',
@@ -1237,7 +1555,7 @@ export class QuestScene implements Scene {
       });
     }
 
-    label(ctx, '委託完成後記得回來回報。', VIEW_W / 2, VIEW_H - 28, {
+    label(ctx, '委託完成後記得回來回報；按 R 可更換一批隨機委託。', VIEW_W / 2, VIEW_H - 28, {
       size: 11,
       align: 'center',
       color: 'rgba(150,170,210,0.8)'
@@ -1295,6 +1613,10 @@ export class EndingScene implements Scene {
 
   constructor(lines: string[] = ENDING_LINES) {
     this.lines = lines;
+  }
+
+  enter() {
+    audio.setBgm('ending');
   }
 
   update(dt: number) {

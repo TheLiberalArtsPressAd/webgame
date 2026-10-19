@@ -1,4 +1,4 @@
-import { AILMENT_NAME, SKILLS, SPECIES, elementMultiplier, fieldMultiplier } from './data';
+import { AILMENT_NAME, SKILLS, SPECIES, elementMultiplier, elementResistFor, fieldMultiplier, passiveOfUnit, resistFor } from './data';
 import { RULES } from './rules';
 import type { Ailment, Element, SkillDef, Stats, Unit } from './types';
 
@@ -8,6 +8,8 @@ import type { Ailment, Element, SkillDef, Stats, Unit } from './types';
 export function effStat(u: Unit, stat: keyof Stats): number {
   let mult = 1;
   for (const b of u.buffs) if (b.stat === stat) mult += b.amount;
+  const p = passiveOfUnit(u);
+  if (p?.statMult?.[stat]) mult += p.statMult[stat]!;
   return Math.max(1, u.max[stat] * mult);
 }
 
@@ -33,12 +35,15 @@ export function calcDamage(
   const mult = elementMultiplier(element, defender.element);
   // 場地效果加成
   const field = fieldBg ? fieldMultiplier(fieldBg, element) : 1;
+  // 被動特性的屬性減免
+  const resist = 1 - elementResistFor(defender, element);
   const crit = Math.random() < RULES.critChance;
   let dmg =
     a *
     (1 + power / Math.max(1, RULES.damagePowerDivisor)) *
     mult *
     field *
+    resist *
     (RULES.damageDefenseBase /
       (RULES.damageDefenseBase + d * RULES.damageDefenseScale));
   if (crit) dmg *= RULES.critMultiplier;
@@ -228,12 +233,15 @@ export function allDead(list: Unit[]): boolean {
 /** 嘗試對目標附加異常狀態，回傳是否成功 */
 export function tryAilment(target: Unit, ailment: Ailment, chance: number, turns: number): boolean {
   if (target.hp <= 0) return false;
+  // 被動 / 裝備的抗性
+  const { immune, resist } = resistFor(target, ailment);
+  if (immune) return false;
   // 已中同一狀態時不覆蓋，只刷新回合
   if (target.ailment === ailment) {
     target.ailmentTurns = Math.max(target.ailmentTurns ?? 0, turns);
     return false;
   }
-  if (Math.random() > chance) return false;
+  if (Math.random() > chance * (1 - resist)) return false;
   target.ailment = ailment;
   target.ailmentTurns = turns;
   target.buffs = [];

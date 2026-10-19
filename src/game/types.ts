@@ -22,6 +22,37 @@ export interface Stats {
 
 export type Shape = 'beast' | 'bird' | 'blob' | 'bug' | 'fish' | 'human' | 'dragon';
 
+/** 裝備欄位 */
+export type EquipSlot = 'weapon' | 'armor' | 'accessory';
+
+export const EQUIP_SLOTS: EquipSlot[] = ['weapon', 'armor', 'accessory'];
+
+/**
+ * 種族被動特性
+ * 由種族 `passive` 指定；未指定時依 `shape` 推導。
+ */
+export interface PassiveDef {
+  id: string;
+  name: string;
+  desc: string;
+  /** 能力值百分比加成（0.15 = +15%） */
+  statMult?: Partial<Stats>;
+  /** 受到指定屬性傷害的減免（0.25 = -25%）；key 'none' 代表無屬性 */
+  elementResist?: Partial<Record<Element, number>>;
+  /** 對這些異常狀態完全免疫 */
+  immune?: Ailment[];
+  /** 異常狀態抗性：降低被附加的機率（0.5 = 一半機率） */
+  ailmentResist?: Partial<Record<Ailment, number>>;
+  /** 造成傷害時吸取的比例（0.15 = 15%） */
+  drain?: number;
+  /** 我方任一成員擁有時，逃跑必定成功 */
+  fleeAlways?: boolean;
+  /** 戰鬥勝利金幣加成（0.2 = +20%） */
+  goldBonus?: number;
+  /** 戰鬥勝利經驗加成 */
+  expBonus?: number;
+}
+
 export interface SpriteDef {
   shape: Shape;
   c1: string;
@@ -77,6 +108,8 @@ export interface SpeciesDef {
   skills: { level: number; id: string }[];
   /** 進化：達到等級後變成另一個種族 */
   evolvesTo?: { species: string; level: number };
+  /** 被動特性 id（未指定時依 shape 推導） */
+  passive?: string;
 }
 
 export interface Buff {
@@ -108,4 +141,6 @@ export interface Unit {
   /** 異常狀態 */
   ailment?: Ailment;
   ailmentTurns?: number;
+  /** 已裝備的道具（各欄位一個道具 id） */
+  equip?: Partial<Record<EquipSlot, string>>;
 }

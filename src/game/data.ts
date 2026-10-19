@@ -1,4 +1,5 @@
-import type { Ailment, Element, SkillDef, SpeciesDef, Stats, Unit } from './types';
+import type { Ailment, Element, EquipSlot, PassiveDef, Shape, SkillDef, SpeciesDef, Stats, Unit } from './types';
+import { EQUIP_SLOTS } from './types';
 import { RULES } from './rules';
 
 // ─────────────────────────────────────────────────────────────
@@ -53,6 +54,134 @@ export const AILMENT_ICON: Record<Ailment, string> = {
 };
 
 export const ALL_AILMENTS: Ailment[] = ['poison', 'bleed', 'paralysis', 'sleep', 'freeze', 'confuse'];
+
+// ─────────────────────────────────────────────────────────────
+// 裝備欄位
+// ─────────────────────────────────────────────────────────────
+export const EQUIP_SLOT_NAME: Record<EquipSlot, string> = {
+  weapon: '武器',
+  armor: '防具',
+  accessory: '飾品'
+};
+
+export const STAT_KEYS: (keyof Stats)[] = ['hp', 'mp', 'atk', 'def', 'mag', 'spd'];
+
+export const STAT_NAME: Record<keyof Stats, string> = {
+  hp: 'HP',
+  mp: 'MP',
+  atk: '攻擊',
+  def: '防禦',
+  mag: '魔力',
+  spd: '速度'
+};
+
+// ─────────────────────────────────────────────────────────────
+// 種族被動特性
+// ─────────────────────────────────────────────────────────────
+export const PASSIVES: Record<string, PassiveDef> = {
+  // 依身形的通用特性
+  swift: { id: 'swift', name: '疾風之翼', desc: '速度 +15%，先發制人。', statMult: { spd: 0.15 } },
+  sturdy: { id: 'sturdy', name: '厚鱗', desc: '防禦 +12%，並受到地屬性傷害 -15%。', statMult: { def: 0.12 }, elementResist: { earth: 0.15 } },
+  fierce: { id: 'fierce', name: '猛襲', desc: '攻擊 +12%。', statMult: { atk: 0.12 } },
+  absorb: { id: 'absorb', name: '黏液體質', desc: '造成傷害時吸取 12% 作為自身 HP。', drain: 0.12 },
+  venomproof: { id: 'venomproof', name: '抗毒甲殼', desc: '免疫中毒。', immune: ['poison'] },
+  aquatic: { id: 'aquatic', name: '親水鱗', desc: '受到水屬性傷害 -25%。', elementResist: { water: 0.25 } },
+  // 元素特化
+  flameheart: { id: 'flameheart', name: '焰心', desc: '魔力 +12%，受到火屬性傷害 -20%。', statMult: { mag: 0.12 }, elementResist: { fire: 0.2 } },
+  iceveil: { id: 'iceveil', name: '冰幕', desc: '受到水屬性傷害 -25%，免疫冰凍。', elementResist: { water: 0.25 }, immune: ['freeze'] },
+  galecloak: { id: 'galecloak', name: '風之斗篷', desc: '速度 +10%，受到風屬性傷害 -20%。', statMult: { spd: 0.1 }, elementResist: { wind: 0.2 } },
+  stonebody: { id: 'stonebody', name: '岩體', desc: '防禦 +15%，受到地屬性傷害 -25%。', statMult: { def: 0.15 }, elementResist: { earth: 0.25 } },
+  // 稀有 / 頭目
+  starpact: { id: 'starpact', name: '星辰之契', desc: '魔力 +10%，免疫混亂。', statMult: { mag: 0.1 }, immune: ['confuse'] },
+  unyielding: { id: 'unyielding', name: '不屈', desc: 'HP +12%，免疫麻痺。', statMult: { hp: 0.12 }, immune: ['paralysis'] },
+  vampire: { id: 'vampire', name: '噬血', desc: '造成傷害時吸取 22% 作為自身 HP。', drain: 0.22 },
+  voidscale: { id: 'voidscale', name: '虛空鱗', desc: '受到無屬性傷害 -25%，免疫混亂。', elementResist: { none: 0.25 }, immune: ['confuse'] },
+  celestial: { id: 'celestial', name: '星穹加護', desc: '所有屬性傷害 -15%，戰鬥經驗 +15%。', elementResist: { fire: 0.15, water: 0.15, wind: 0.15, earth: 0.15, none: 0.15 }, expBonus: 0.15 },
+  abyssal: { id: 'abyssal', name: '深淵加護', desc: '所有屬性傷害 -20%，金幣 +25%。', elementResist: { fire: 0.2, water: 0.2, wind: 0.2, earth: 0.2, none: 0.2 }, goldBonus: 0.25 },
+  sprinter: { id: 'sprinter', name: '疾走', desc: '速度 +12%，逃跑必定成功。', statMult: { spd: 0.12 }, fleeAlways: true },
+  greedy: { id: 'greedy', name: '貪慾', desc: '戰鬥勝利金幣 +25%。', goldBonus: 0.25 }
+};
+
+/** 未指定 passive 時，依身形推導 */
+const SHAPE_PASSIVE: Record<Shape, string | undefined> = {
+  beast: 'fierce',
+  bird: 'swift',
+  blob: 'absorb',
+  bug: 'venomproof',
+  fish: 'aquatic',
+  human: undefined,
+  dragon: 'sturdy'
+};
+
+/**
+ * 個別種族的專屬特性覆寫（優先於身形推導）。
+ * 放在這裡集中管理，admin 改動種族數值時也不會遺失。
+ */
+const SPECIES_PASSIVE: Record<string, string> = {
+  hero_asa: 'starpact',
+  hero_rin: 'swift',
+  hero_tieshan: 'stonebody',
+  // 第一章 / 教團
+  shadowwolf: 'vampire',
+  crystalwarden: 'sturdy',
+  sectleader: 'unyielding',
+  // 火
+  flamefox: 'flameheart',
+  emberpup: 'flameheart',
+  magmaboar: 'flameheart',
+  cinderimp: 'flameheart',
+  lavadrake: 'flameheart',
+  phoenixbird: 'flameheart',
+  magmalord: 'flameheart',
+  miragecat: 'flameheart',
+  // 水
+  bubbletad: 'absorb',
+  dewfrog: 'absorb',
+  frostdeer: 'iceveil',
+  frostfang: 'iceveil',
+  snowpup: 'swift',
+  frostbear: 'sturdy',
+  frostwyrm: 'iceveil',
+  frostlich: 'iceveil',
+  icegolem: 'iceveil',
+  tidecaller: 'aquatic',
+  // 風
+  zephyrling: 'galecloak',
+  stormroc: 'galecloak',
+  skywhale: 'galecloak',
+  cloudserpent: 'galecloak',
+  thunderbird: 'swift',
+  // 地
+  pebblet: 'sturdy',
+  rockturtle: 'stonebody',
+  mossbear: 'sturdy',
+  crystalspine: 'stonebody',
+  titanrock: 'stonebody',
+  sandworm: 'venomproof',
+  dunejackal: 'greedy',
+  // 無屬性 / 稀有
+  starling: 'starpact',
+  luminox: 'starpact',
+  voidmoth: 'voidscale',
+  starsovereign: 'celestial',
+  starwisp: 'celestial',
+  shadehound: 'vampire',
+  gloomweaver: 'venomproof',
+  abyssknight: 'unyielding',
+  voiddragon: 'voidscale',
+  nullbeast: 'unyielding',
+  abysssovereign: 'abyssal'
+};
+
+export function passiveOf(sp: SpeciesDef | undefined | null): PassiveDef | null {
+  if (!sp) return null;
+  const id = sp.passive ?? SPECIES_PASSIVE[sp.id] ?? SHAPE_PASSIVE[sp.shape];
+  return id ? PASSIVES[id] ?? null : null;
+}
+
+export function passiveOfUnit(u: Unit): PassiveDef | null {
+  return passiveOf(SPECIES[u.speciesId]);
+}
 
 const BEATS: Record<Element, Element> = {
   fire: 'wind',
@@ -1914,7 +2043,7 @@ export function evolveUnit(unit: Unit, speciesId: string): boolean {
     horns: sp.horns,
     wings: sp.wings
   };
-  unit.max = statAtLevel(sp, unit.level);
+  unit.max = statsForUnit(unit);
   unit.hp = unit.max.hp;
   unit.mp = unit.max.mp;
   unit.skills = skillsFor(sp, unit.level);
@@ -1928,8 +2057,109 @@ export function evolutionTarget(sp: SpeciesDef, level: number): string | null {
 }
 
 // ─────────────────────────────────────────────────────────────
+// 裝備與被動：最終能力計算
+// ─────────────────────────────────────────────────────────────
+/** 取得單位裝備的道具（略過無效資料） */
+export function equipItems(u: Unit): { slot: EquipSlot; item: ItemDef }[] {
+  const out: { slot: EquipSlot; item: ItemDef }[] = [];
+  for (const slot of EQUIP_SLOTS) {
+    const id = u.equip?.[slot];
+    const item = id ? ITEMS[id] : undefined;
+    if (item && item.effect.type === 'equip') out.push({ slot, item });
+  }
+  return out;
+}
+
+/** 依種族、等級與裝備計算最終能力上限 */
+export function statsForUnit(u: Unit): Stats {
+  const sp = SPECIES[u.speciesId];
+  if (!sp) return u.max ?? { hp: 1, mp: 0, atk: 1, def: 1, mag: 1, spd: 1 };
+  const base = statAtLevel(sp, u.level);
+  const flat = { hp: 0, mp: 0, atk: 0, def: 0, mag: 0, spd: 0 };
+  const mult = { hp: 0, mp: 0, atk: 0, def: 0, mag: 0, spd: 0 };
+  for (const { item } of equipItems(u)) {
+    if (item.effect.type !== 'equip') continue;
+    for (const k of STAT_KEYS) {
+      const b = item.effect.bonus?.[k];
+      if (b) flat[k] += b;
+      const m = item.effect.mult?.[k];
+      if (m) mult[k] += m;
+    }
+  }
+  const out = {} as Stats;
+  for (const k of STAT_KEYS) {
+    const v = (base[k] + flat[k]) * (1 + mult[k]);
+    out[k] = Math.max(k === 'mp' ? 0 : 1, Math.round(v));
+  }
+  return out;
+}
+
+/** 裝備帶來的「不含裝備 → 含裝備」差異（供 UI 顯示 +X） */
+export function equipDelta(u: Unit): Partial<Record<keyof Stats, number>> {
+  const sp = SPECIES[u.speciesId];
+  if (!sp) return {};
+  const base = statAtLevel(sp, u.level);
+  const withEquip = statsForUnit(u);
+  const out: Partial<Record<keyof Stats, number>> = {};
+  for (const k of STAT_KEYS) {
+    const d = withEquip[k] - base[k];
+    if (d !== 0) out[k] = d;
+  }
+  return out;
+}
+
+/** 異常狀態的免疫 / 抗性（裝備 + 被動） */
+export function resistFor(u: Unit, ailment: Ailment): { immune: boolean; resist: number } {
+  let immune = false;
+  let resist = 0;
+  const p = passiveOfUnit(u);
+  if (p?.immune?.includes(ailment)) immune = true;
+  if (p?.ailmentResist?.[ailment]) resist += p.ailmentResist[ailment]!;
+  for (const { item } of equipItems(u)) {
+    if (item.effect.type !== 'equip') continue;
+    if (item.effect.resist?.[ailment]) resist += item.effect.resist[ailment]!;
+  }
+  return { immune, resist: Math.max(0, Math.min(0.9, resist)) };
+}
+
+/** 受到指定屬性傷害的減免比例（0~0.9） */
+export function elementResistFor(u: Unit, element: Element): number {
+  const p = passiveOfUnit(u);
+  const r = p?.elementResist?.[element] ?? 0;
+  return Math.max(0, Math.min(0.9, r));
+}
+
+/** 吸血比例 */
+export function drainFor(u: Unit): number {
+  return Math.max(0, passiveOfUnit(u)?.drain ?? 0);
+}
+
+/** 隊伍（存活成員）的獎勵加成 */
+export function partyBonus(party: Unit[], key: 'goldBonus' | 'expBonus'): number {
+  let v = 0;
+  for (const u of party) if (u.hp > 0) v += passiveOfUnit(u)?.[key] ?? 0;
+  return v;
+}
+
+/** 隊伍中是否有人讓逃跑必定成功 */
+export function partyFleeAlways(party: Unit[]): boolean {
+  return party.some((u) => u.hp > 0 && !!(passiveOfUnit(u)?.fleeAlways));
+}
+
+// ─────────────────────────────────────────────────────────────
 // 道具
 // ─────────────────────────────────────────────────────────────
+export interface EquipEffect {
+  type: 'equip';
+  slot: EquipSlot;
+  /** 固定加值 */
+  bonus?: Partial<Stats>;
+  /** 百分比加值（0.15 = +15%） */
+  mult?: Partial<Stats>;
+  /** 異常狀態抗性：降低被附加的機率（0.5 = 50% 抗性） */
+  resist?: Partial<Record<Ailment, number>>;
+}
+
 export interface ItemDef {
   id: string;
   name: string;
@@ -1948,6 +2178,7 @@ export interface ItemDef {
     | { type: 'damage'; power: number }
     | { type: 'warp' }
     | { type: 'teach'; skill: string }
+    | EquipEffect
     | { type: 'none' };
 }
 
@@ -2121,9 +2352,174 @@ export const ITEMS: Record<string, ItemDef> = {
     price: 900,
     use: 'field',
     effect: { type: 'teach', skill: 'stardeath' }
+  },
+
+  // ── 裝備：武器 ──
+  weapon_iron: {
+    id: 'weapon_iron',
+    name: '鐵劍',
+    desc: '以星塵鐵打造的短劍。裝備後攻擊 +8。',
+    price: 300,
+    use: 'none',
+    effect: { type: 'equip', slot: 'weapon', bonus: { atk: 8 } }
+  },
+  weapon_staff: {
+    id: 'weapon_staff',
+    name: '星輝法杖',
+    desc: '杖頂嵌著碎星的木杖。裝備後魔力 +10、MP +8。',
+    price: 420,
+    use: 'none',
+    effect: { type: 'equip', slot: 'weapon', bonus: { mag: 10, mp: 8 } }
+  },
+  weapon_claw: {
+    id: 'weapon_claw',
+    name: '影爪',
+    desc: '從蝕影獸身上取下的利爪。裝備後攻擊 +14、速度 +4。',
+    price: 900,
+    use: 'none',
+    effect: { type: 'equip', slot: 'weapon', bonus: { atk: 14, spd: 4 } }
+  },
+  weapon_abyss: {
+    id: 'weapon_abyss',
+    name: '深淵之刃',
+    desc: '迴廊深處的漆黑之刃。裝備後攻擊 +24、魔力 +8。',
+    price: 2400,
+    use: 'none',
+    effect: { type: 'equip', slot: 'weapon', bonus: { atk: 24, mag: 8 } }
+  },
+
+  // ── 裝備：防具 ──
+  armor_leather: {
+    id: 'armor_leather',
+    name: '皮甲',
+    desc: '輕便的獸皮護甲。裝備後防禦 +7、HP +20。',
+    price: 280,
+    use: 'none',
+    effect: { type: 'equip', slot: 'armor', bonus: { def: 7, hp: 20 } }
+  },
+  armor_scale: {
+    id: 'armor_scale',
+    name: '鱗鎧',
+    desc: '以幻獸鱗片縫製的鎧甲。裝備後防禦 +14、HP +40。',
+    price: 700,
+    use: 'none',
+    effect: { type: 'equip', slot: 'armor', bonus: { def: 14, hp: 40 } }
+  },
+  armor_robe: {
+    id: 'armor_robe',
+    name: '秘法長袍',
+    desc: '織入星塵絲的長袍。裝備後防禦 +6、魔力 +8、MP +12。',
+    price: 620,
+    use: 'none',
+    effect: { type: 'equip', slot: 'armor', bonus: { def: 6, mag: 8, mp: 12 } }
+  },
+  armor_abyss: {
+    id: 'armor_abyss',
+    name: '深淵鎧甲',
+    desc: '吸收光芒的黑色鎧甲。裝備後防禦 +24、HP +70。',
+    price: 2400,
+    use: 'none',
+    effect: { type: 'equip', slot: 'armor', bonus: { def: 24, hp: 70 } }
+  },
+
+  // ── 裝備：飾品 ──
+  acc_swift: {
+    id: 'acc_swift',
+    name: '疾風之戒',
+    desc: '帶著微風氣息的戒指。裝備後速度 +9。',
+    price: 350,
+    use: 'none',
+    effect: { type: 'equip', slot: 'accessory', bonus: { spd: 9 } }
+  },
+  acc_vital: {
+    id: 'acc_vital',
+    name: '生命護符',
+    desc: '溫熱的護符，貼近胸口會感到安心。裝備後 HP +45。',
+    price: 520,
+    use: 'none',
+    effect: { type: 'equip', slot: 'accessory', bonus: { hp: 45 } }
+  },
+  acc_ward: {
+    id: 'acc_ward',
+    name: '淨化護符',
+    desc: '刻著潔淨符文。裝備後中毒、流血、睡眠的抗性 +50%。',
+    price: 640,
+    use: 'none',
+    effect: {
+      type: 'equip',
+      slot: 'accessory',
+      resist: { poison: 0.5, bleed: 0.5, sleep: 0.5 }
+    }
+  },
+  acc_orb: {
+    id: 'acc_orb',
+    name: '專注寶珠',
+    desc: '內有星光的寶珠。裝備後魔力 +10、MP +16。',
+    price: 700,
+    use: 'none',
+    effect: { type: 'equip', slot: 'accessory', bonus: { mag: 10, mp: 16 } }
+  },
+  acc_crown: {
+    id: 'acc_crown',
+    name: '星辰頭冠',
+    desc: '星之霸主遺留的冠冕。裝備後魔力 +12、速度 +6、HP +30。',
+    price: 1800,
+    use: 'none',
+    effect: { type: 'equip', slot: 'accessory', bonus: { mag: 12, spd: 6, hp: 30 } }
+  },
+  acc_abyss: {
+    id: 'acc_abyss',
+    name: '深淵之戒',
+    desc: '迴廊的黑色結晶。裝備後攻擊 +10、防禦 +10，混亂抗性 +60%。',
+    price: 2200,
+    use: 'none',
+    effect: {
+      type: 'equip',
+      slot: 'accessory',
+      bonus: { atk: 10, def: 10 },
+      resist: { confuse: 0.6 }
+    }
   }
 };
 
 export function itemName(id: string): string {
   return ITEMS[id]?.name ?? id;
+}
+
+// ─────────────────────────────────────────────────────────────
+// 圖鑑收集獎勵
+// ─────────────────────────────────────────────────────────────
+export interface DexRewardDef {
+  id: string;
+  /** 圖鑑登錄數門檻 */
+  count: number;
+  desc: string;
+  gold?: number;
+  items?: { id: string; n: number }[];
+  exp?: number;
+}
+
+export const DEX_REWARDS: DexRewardDef[] = [
+  { id: 'dex5', count: 5, desc: '療癒草 ×3', gold: 200, items: [{ id: 'herb', n: 3 }] },
+  { id: 'dex8', count: 8, desc: '封印石 ×5', gold: 300, items: [{ id: 'sealstone', n: 5 }] },
+  { id: 'dex12', count: 12, desc: '星露藥 ×3、魔力水滴 ×2', items: [{ id: 'herb_hi', n: 3 }, { id: 'manadrop', n: 2 }] },
+  { id: 'dex16', count: 16, desc: '鐵劍（武器）', gold: 500, items: [{ id: 'weapon_iron', n: 1 }] },
+  { id: 'dex21', count: 21, desc: '鱗鎧（防具）', gold: 600, items: [{ id: 'armor_scale', n: 1 }] },
+  { id: 'dex26', count: 26, desc: '生命護符（飾品）', gold: 800, items: [{ id: 'acc_vital', n: 1 }] },
+  { id: 'dex31', count: 31, desc: '技能石・生命之泉', gold: 900, items: [{ id: 'stone_regen', n: 1 }] },
+  { id: 'dex36', count: 36, desc: '專注寶珠（飾品）', gold: 1200, items: [{ id: 'acc_orb', n: 1 }] },
+  { id: 'dex42', count: 42, desc: '影爪（武器）、復甦靈藥 ×2', gold: 1500, exp: 500, items: [{ id: 'weapon_claw', n: 1 }, { id: 'elixir', n: 2 }] },
+  {
+    id: 'dex51',
+    count: 51,
+    desc: '星辰頭冠、技能石・星滅、金幣 3000',
+    gold: 3000,
+    exp: 2000,
+    items: [{ id: 'acc_crown', n: 1 }, { id: 'stone_stardeath', n: 1 }]
+  }
+];
+
+/** 圖鑑總數（用於進度顯示） */
+export function dexTotal(): number {
+  return SPECIES_ORDER.length;
 }

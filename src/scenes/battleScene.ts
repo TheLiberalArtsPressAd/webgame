@@ -1,10 +1,11 @@
 import { VIEW_H, VIEW_W, scenes, type Scene } from '../engine/scene';
 import * as input from '../engine/input';
 import { bar, drawBeast, drawHero, label, panel, shade, wrapText } from '../engine/draw';
-import { createUnit, AILMENT_COLOR, AILMENT_ICON, AILMENT_NAME, ELEMENT_COLOR, ELEMENT_NAME, FIELD_EFFECTS, ITEMS, SKILLS, SPECIES, itemName } from '../game/data';
+import { createUnit, AILMENT_COLOR, AILMENT_ICON, AILMENT_NAME, ELEMENT_COLOR, ELEMENT_NAME, FIELD_EFFECTS, ITEMS, SKILLS, SPECIES, drainFor, itemName, passiveOfUnit, partyBonus, partyFleeAlways } from '../game/data';
 import { session } from '../game/session';
 import { addItem, addPet, giveExp, itemCount, removeItem, type LevelUpInfo } from '../game/state';
 import { questOnCapture, questOnWin } from '../game/quests';
+import { audio } from '../engine/audio';
 import {
   actionBlocked,
   allDead,
@@ -142,6 +143,7 @@ export class BattleScene implements Scene {
 
   enter() {
     this.message = this.opt.intro ?? '戰鬥開始！';
+    audio.setBgm(this.opt.boss ? 'boss' : 'battle');
   }
 
   // ─────────────────────────────────────────────────────────
@@ -565,6 +567,7 @@ export class BattleScene implements Scene {
 
   private damage(target: Unit, dmg: number, crit: boolean, mult: number, elementLabel: string) {
     target.hp = Math.max(0, target.hp - dmg);
+    audio.play(crit ? 'crit' : 'hit');
     const pos = this.posOf(target);
     const f = this.getFx(target);
     const canSeeShake = target.hp > 0;
@@ -756,7 +759,7 @@ export class BattleScene implements Scene {
           this.waitTimer = 0.9;
           break;
         }
-        if (Math.random() < chance) {
+        if (partyFleeAlways(this.party) || Math.random() < chance) {
           this.message = '成功逃走了！';
           this.pendingResult = 'flee';
           this.resultLines = ['成功逃走了。'];
@@ -777,10 +780,28 @@ export class BattleScene implements Scene {
     const el = actor.element === 'none' ? '' : `【${ELEMENT_NAME[actor.element]}】`;
     this.damage(target, res.dmg, res.crit, res.mult, el);
     this.message = `${actor.name} 的攻擊！ 對 ${target.name} 造成 ${res.dmg} 傷害。`;
+    this.applyDrain(actor, res.dmg);
+  }
+
+  /** 被動「吸血」：造成傷害後回復自身 HP */
+  private applyDrain(attacker: Unit, dmg: number) {
+    const ratio = drainFor(attacker);
+    if (ratio <= 0 || dmg <= 0 || attacker.hp <= 0) return;
+    const before = attacker.hp;
+    attacker.hp = Math.min(attacker.max.hp, attacker.hp + Math.max(1, Math.round(dmg * ratio)));
+    const gained = attacker.hp - before;
+    if (gained > 0) {
+      const p = this.posOf(attacker);
+      this.float(p.x, p.y - 74, `+${gained}`, '#8ef0a8', 15);
+    }
   }
 
   private performSkill(actor: Unit, sk: SkillDef, primary: Unit) {
     const label2 = `【${sk.name}】`;
+    if (sk.kind === 'heal' || sk.kind === 'revive' || sk.cure) audio.play('heal');
+    else if (sk.kind === 'buff') audio.play('buff');
+    else if (sk.kind === 'debuff' || sk.kind === 'status') audio.play('debuff');
+    else audio.play('magic');
     // 目標清單必須依「施術者陣營」判定，否則敵方的全體技會打到自己的同伴
     const actorIsEnemy = actor.kind === 'enemy';
     const foes = () => (actorIsEnemy ? this.aliveParty() : this.aliveEnemies());
@@ -902,6 +923,7 @@ export class BattleScene implements Scene {
         ? ` ${appliedNames.join('、')} 陷入了${AILMENT_NAME[sk.ailment!]}。`
         : ''
     }`;
+    this.applyDrain(actor, total);
   }
 
   private performItem(actor: Unit, itemId: string, target: Unit) {
@@ -981,6 +1003,7 @@ export class BattleScene implements Scene {
     }
     if (Math.random() < chance) {
       this.float(p.x, p.y - 60, '封印成功!', '#ffe98a', 22);
+      audio.play('capture');
       const caught = createUnit(target.speciesId, target.level, 'pet');
       caught.hp = Math.max(1, target.hp);
       caught.mp = target.mp;
@@ -992,6 +1015,7 @@ export class BattleScene implements Scene {
       }`;
     } else {
       this.float(p.x, p.y - 60, '失敗…', '#a8b6cc', 18);
+      audio.play('fail');
       this.message = `${actor.name} 投出了封印石……但 ${target.name} 掙脫了！`;
     }
   }
@@ -999,8 +1023,10 @@ export class BattleScene implements Scene {
   // ── 勝敗 ─────────────────────────────────────────────────
   private victory() {
     const s = session.state;
-    const totalExp = this.enemies.reduce((a, e) => a + expReward(e), 0);
-    const totalGold = this.enemies.reduce((a, e) => a + goldReward(e), 0);
+    const goldMult = 1 + partyBonus(this.party, 'goldBonus');
+    const expMult = 1 + partyBonus(this.party, 'expBonus');
+    const totalExp = Math.round(this.enemies.reduce((a, e) => a + expReward(e), 0) * expMult);
+    const totalGold = Math.round(this.enemies.reduce((a, e) => a + goldReward(e), 0) * goldMult);
     s.gold += totalGold;
 
     const lines: string[] = [`獲得 ${totalExp} 經驗值、${totalGold} G。`];
@@ -1032,6 +1058,7 @@ export class BattleScene implements Scene {
 
     this.resultLines = lines;
     this.message = '戰鬥勝利！';
+    audio.play(levelUps.length ? 'levelup' : 'victory');
     this.pendingResult = 'win';
     this.phase = 'result';
     this.resultTimer = this.opt.boss ? 3.0 : 2.4;
@@ -1046,6 +1073,7 @@ export class BattleScene implements Scene {
   private defeat() {
     this.resultLines = ['隊伍全滅了……'];
     this.message = '戰鬥失敗……';
+    audio.play('defeat');
     this.pendingResult = 'lose';
     this.phase = 'result';
     this.resultTimer = 2.6;
@@ -1169,6 +1197,8 @@ export class BattleScene implements Scene {
       '異常狀態：☠中毒　✚流血（每回合受傷）　⚡麻痺　Z睡眠　❄冰凍　？混亂（機率無法行動）',
       '中毒 / 流血可用「解毒草」或技能「淨化」「大淨化」解除，冰凍受擊即碎',
       '場地效果會強化對應屬性傷害，畫面頂端會標示',
+      '每隻幻獸都有被動特性（如抗性、吸血、免疫），可在「圖鑑」查看',
+      '裝備（武器 / 防具 / 飾品）在選單「裝備」頁籤穿戴，可提升能力並提供異常抗性',
       '頭目在血量過半時可能狂暴化或呼叫增援，注意節奏',
       '',
       '再按一次 Esc 關閉本說明'

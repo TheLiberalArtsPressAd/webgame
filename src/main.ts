@@ -1,6 +1,7 @@
 import './style.css';
 import { VIEW_H, VIEW_W, scenes } from './engine/scene';
 import { clearPressed, setupInput } from './engine/input';
+import { audio } from './engine/audio';
 import { TitleScene } from './scenes/menus';
 import { session } from './game/session';
 import { initGameConfig } from './game/config';
@@ -35,6 +36,11 @@ resize();
 setupInput(canvas);
 scenes.set(new TitleScene());
 
+// 音訊需在使用者互動後才能啟動
+const unlockAudio = () => audio.unlock();
+window.addEventListener('pointerdown', unlockAudio);
+window.addEventListener('keydown', unlockAudio);
+
 let last = performance.now();
 function frame(now: number) {
   const dt = Math.min(0.05, Math.max(0, (now - last) / 1000));
@@ -52,7 +58,7 @@ requestAnimationFrame(frame);
 
 // 開發用除錯介面（僅在 dev 模式提供，不影響正式打包）
 if (import.meta.env.DEV) {
-  const dbg: Record<string, unknown> = { scenes, session };
+  const dbg: Record<string, unknown> = { scenes, session, audio };
   dbg.goto = async (mapId: string, x: number, y: number) => {
     session.state.mapId = mapId;
     session.state.px = x;

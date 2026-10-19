@@ -17,6 +17,7 @@ import { session, type GameState } from '../game/session';
 import { addItem, fullRestore, giveExp, MAX_PARTY } from '../game/state';
 import { createUnit, ITEMS, itemName, SPECIES } from '../game/data';
 import { questOnArrive, activeQuestSummary } from '../game/quests';
+import { audio, bgmForMap } from '../engine/audio';
 import { BattleScene } from './battleScene';
 import { MenuScene, QuestScene, ShopScene } from './menus';
 import type { Unit } from '../game/types';
@@ -118,9 +119,11 @@ export class FieldScene implements Scene {
   private syncMap() {
     const id = this.s.mapId;
     if (id !== this.mapId || !this.grid) {
+      const changed = id !== this.mapId;
       this.mapId = id;
       this.map = MAPS[id] ?? MAPS['village'];
       this.grid = MAP_GRIDS[this.map.id];
+      if (changed) audio.play('portal');
     }
     if (this.map.town) this.s.lastTown = this.map.id;
     this.px = this.s.px;
@@ -132,6 +135,12 @@ export class FieldScene implements Scene {
     this.cam = c;
     this.clampCamera();
     questOnArrive(this.s, this.map.id);
+    audio.setBgm(bgmForMap(this.map.id, !!this.map.town));
+  }
+
+  /** 回到地圖時恢復對應的背景音樂 */
+  private updateBgm() {
+    audio.setBgm(bgmForMap(this.map.id, !!this.map.town));
   }
 
   private walkableAt(x: number, y: number): boolean {
@@ -390,6 +399,7 @@ export class FieldScene implements Scene {
   }
 
   private startDialog(node: { lines: StoryLine[]; action?: string; choices?: { text: string; action?: string }[] }, _who: string) {
+    audio.play('talk');
     this.dialog = {
       lines: node.lines,
       index: 0,

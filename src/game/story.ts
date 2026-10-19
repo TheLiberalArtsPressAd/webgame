@@ -787,5 +787,22 @@ export const SHOP_STOCK = [
   'stone_icebind',
   'stone_regen',
   'stone_warcry',
-  'stone_aegis'
+  'stone_aegis',
+  // 裝備：武器
+  'weapon_iron',
+  'weapon_staff',
+  'weapon_claw',
+  'weapon_abyss',
+  // 裝備：防具
+  'armor_leather',
+  'armor_scale',
+  'armor_robe',
+  'armor_abyss',
+  // 裝備：飾品
+  'acc_swift',
+  'acc_vital',
+  'acc_ward',
+  'acc_orb',
+  'acc_crown',
+  'acc_abyss'
 ];

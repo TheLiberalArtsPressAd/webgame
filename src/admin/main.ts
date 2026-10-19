@@ -94,6 +94,8 @@ const EFFECT_OPTIONS: { value: ItemDef['effect']['type']; label: string }[] = [
   { value: 'capture', label: '封印 / 捕獲（capture）' },
   { value: 'escape', label: '必定逃脫（escape）' },
   { value: 'warp', label: '傳送回城（warp）' },
+  { value: 'teach', label: '傳授技能（teach）' },
+  { value: 'equip', label: '裝備（equip）' },
   { value: 'none', label: '無效果（none）' }
 ];
 

@@ -1,6 +1,7 @@
-import { SPECIES, ITEMS, expToNext, skillsFor, statAtLevel, createUnit, evolveUnit, evolutionTarget } from './data';
+import { SPECIES, ITEMS, DEX_REWARDS, expToNext, skillsFor, statAtLevel, statsForUnit, createUnit, evolveUnit, evolutionTarget } from './data';
 import { RULES } from './rules';
 import type { Unit } from './types';
+import type { QuestDef } from './quests';
 
 export interface GameState {
   version: number;
@@ -33,6 +34,14 @@ export interface GameState {
   questClaimed: Record<string, boolean>;
   /** 重複委託完成次數 */
   questClears: Record<string, number>;
+  /** 已領取的圖鑑收集獎勵 id */
+  dexRewards: string[];
+  /** 隨機委託（討伐委託板）目前這一批 */
+  bounties: QuestDef[];
+  /** 隨機委託批號（換一批時 +1） */
+  bountyRound: number;
+  /** 隨機委託的種子（建立存檔時決定） */
+  bountySeed: number;
 }
 
 export const SAVE_KEY = 'stardust-beasts-save-v1';
@@ -63,7 +72,11 @@ export function newGame(name = '旭'): GameState {
     questTaken: [],
     questProgress: {},
     questClaimed: {},
-    questClears: {}
+    questClears: {},
+    dexRewards: [],
+    bounties: [],
+    bountyRound: 0,
+    bountySeed: Math.floor(Math.random() * 0x7fffffff)
   };
   return s;
 }
@@ -134,13 +147,75 @@ export function addPet(s: GameState, unit: Unit): 'party' | 'storage' {
 export function recalc(u: Unit) {
   const sp = SPECIES[u.speciesId];
   if (!sp) return;
-  const newMax = statAtLevel(sp, u.level);
+  const newMax = statsForUnit(u);
+  const wasDead = u.hp <= 0;
   const hpRatio = u.max.hp > 0 ? u.hp / u.max.hp : 1;
   const mpRatio = u.max.mp > 0 ? u.mp / u.max.mp : 1;
   u.max = newMax;
-  u.hp = Math.max(1, Math.round(newMax.hp * hpRatio));
+  u.hp = wasDead ? 0 : Math.max(1, Math.round(newMax.hp * hpRatio));
   u.mp = Math.round(newMax.mp * mpRatio);
   u.skills = skillsFor(sp, u.level);
+}
+
+// ─────────────────────────────────────────────────────────────
+// 裝備
+// ─────────────────────────────────────────────────────────────
+/** 裝備道具（會把原本的同欄位裝備退回背包）。成功回傳 true。 */
+export function equipItem(s: GameState, u: Unit, id: string): boolean {
+  const def = ITEMS[id];
+  if (!def || def.effect.type !== 'equip') return false;
+  if (itemCount(s, id) <= 0) return false;
+  const slot = def.effect.slot;
+  const cur = u.equip?.[slot];
+  if (!removeItem(s, id, 1)) return false;
+  if (cur) addItem(s, cur, 1);
+  u.equip = u.equip ?? {};
+  u.equip[slot] = id;
+  recalc(u);
+  return true;
+}
+
+/** 卸下某欄位裝備並退回背包。回傳卸下的道具 id。 */
+export function unequipSlot(s: GameState, u: Unit, slot: 'weapon' | 'armor' | 'accessory'): string | null {
+  const cur = u.equip?.[slot];
+  if (!cur) return null;
+  addItem(s, cur, 1);
+  if (u.equip) delete u.equip[slot];
+  recalc(u);
+  return cur;
+}
+
+// ─────────────────────────────────────────────────────────────
+// 圖鑑收集獎勵
+// ─────────────────────────────────────────────────────────────
+export function dexCollected(s: GameState): number {
+  return Object.keys(s.dex).filter((k) => SPECIES[k]).length;
+}
+
+/** 領取所有已達成的圖鑑獎勵，回傳獎勵說明 */
+export function claimDexRewards(s: GameState): string[] {
+  const collected = dexCollected(s);
+  s.dexRewards = s.dexRewards ?? [];
+  const out: string[] = [];
+  for (const r of DEX_REWARDS) {
+    if (collected < r.count || s.dexRewards.includes(r.id)) continue;
+    s.dexRewards.push(r.id);
+    const parts: string[] = [];
+    if (r.gold) {
+      s.gold += r.gold;
+      parts.push(`${r.gold} G`);
+    }
+    for (const it of r.items ?? []) {
+      addItem(s, it.id, it.n);
+      parts.push(`${ITEMS[it.id]?.name ?? it.id} ×${it.n}`);
+    }
+    if (r.exp) {
+      for (const u of [...s.party, ...s.storage]) giveExp(s, u, r.exp);
+      parts.push(`${r.exp} 經驗值`);
+    }
+    out.push(`圖鑑 ${r.count} 種 → ${parts.join('、')}`);
+  }
+  return out;
 }
 
 export interface LevelUpInfo {
@@ -218,17 +293,22 @@ export function loadGame(): GameState | null {
     s.questProgress = s.questProgress ?? {};
     s.questClaimed = s.questClaimed ?? {};
     s.questClears = s.questClears ?? {};
+    s.dexRewards = Array.isArray(s.dexRewards) ? s.dexRewards : [];
+    s.bounties = Array.isArray(s.bounties) ? s.bounties : [];
+    s.bountyRound = Number(s.bountyRound) || 0;
+    s.bountySeed = Number(s.bountySeed) || Math.floor(Math.random() * 0x7fffffff);
     for (const u of [...s.party, ...s.storage]) {
       u.buffs = u.buffs ?? [];
       u.max = u.max ?? statAtLevel(SPECIES[u.speciesId], u.level);
       u.ailmentTurns = u.ailmentTurns ?? 0;
+      u.equip = u.equip ?? {};
     }
     // 後台調整種族數值後，讓舊存檔也套用新的能力值（保留 HP/MP 百分比）
     if (RULES.recalcOnLoad) {
       for (const u of [...s.party, ...s.storage]) {
         const sp = SPECIES[u.speciesId];
         if (!sp) continue;
-        const next = statAtLevel(sp, u.level);
+        const next = statsForUnit(u);
         const hpRatio = u.max && u.max.hp > 0 ? u.hp / u.max.hp : 1;
         const mpRatio = u.max && u.max.mp > 0 ? u.mp / u.max.mp : 1;
         u.max = next;
