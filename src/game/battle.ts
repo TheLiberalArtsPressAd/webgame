@@ -20,6 +20,13 @@ export interface DamageResult {
   element: Element;
 }
 
+/** 新手保護：等級越低加成越大，達到 earlyGameLevel 後歸零（回傳 0~1） */
+export function earlyAssist(level: number): number {
+  const cap = RULES.earlyGameLevel;
+  if (!cap || cap <= 0) return 0;
+  return Math.max(0, Math.min(1, (cap - level) / cap));
+}
+
 /** 一般攻擊（skill = null）或技能攻擊的傷害計算 */
 export function calcDamage(
   attacker: Unit,
@@ -38,12 +45,18 @@ export function calcDamage(
   // 被動特性的屬性減免
   const resist = 1 - elementResistFor(defender, element);
   const crit = Math.random() < RULES.critChance;
+  // 平衡調整：我方 / 敵方整體傷害倍率，外加低等級時的新手保護
+  const side =
+    attacker.kind === 'enemy'
+      ? RULES.enemyDamageMult * (1 - RULES.enemyEarlyDamageReduction * earlyAssist(defender.level))
+      : RULES.allyDamageMult * (1 + RULES.allyEarlyDamageBonus * earlyAssist(attacker.level));
   let dmg =
     a *
     (1 + power / Math.max(1, RULES.damagePowerDivisor)) *
     mult *
     field *
     resist *
+    side *
     (RULES.damageDefenseBase /
       (RULES.damageDefenseBase + d * RULES.damageDefenseScale));
   if (crit) dmg *= RULES.critMultiplier;
@@ -56,7 +69,9 @@ export function calcDamage(
 
 export function calcHeal(caster: Unit, skill: SkillDef, target: Unit): number {
   const mag = effStat(caster, 'mag');
-  const amount = Math.round(mag * (1 + skill.power / Math.max(1, RULES.healDivisor)));
+  const early =
+    caster.kind === 'enemy' ? 1 : 1 + RULES.allyEarlyHealBonus * earlyAssist(caster.level);
+  const amount = Math.round(mag * (1 + skill.power / Math.max(1, RULES.healDivisor)) * early);
   return Math.max(1, Math.min(amount, target.max.hp - target.hp));
 }
 

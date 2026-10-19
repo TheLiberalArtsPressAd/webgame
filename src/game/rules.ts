@@ -36,6 +36,21 @@ export interface Rules {
   /** 治療公式：魔力 * (1 + 威力 / healDivisor) */
   healDivisor: number;
 
+  /** 我方（角色與幻獸）造成的傷害倍率 */
+  allyDamageMult: number;
+  /** 敵方造成的傷害倍率 */
+  enemyDamageMult: number;
+  /** 新手保護：等級低於此值時獲得額外加成 / 減傷（0 = 關閉） */
+  earlyGameLevel: number;
+  /** 新手保護：我方造成傷害的最大加成（等級 1 時，隨等級線性遞減到 0） */
+  allyEarlyDamageBonus: number;
+  /** 新手保護：我方受到傷害的最大減免（等級 1 時，隨等級線性遞減到 0） */
+  enemyEarlyDamageReduction: number;
+  /** 新手保護：我方治療的最大加成（等級 1 時，隨等級線性遞減到 0） */
+  allyEarlyHealBonus: number;
+  /** 野外遇敵數量上限（同時也受存活隊伍人數限制） */
+  maxEnemies: number;
+
   /** 捕獲率公式 */
   captureBase: number;
   captureHpScale: number;
@@ -71,11 +86,11 @@ export const DEFAULT_RULES: Rules = {
   expLinear: 26,
   expConstant: 20,
   expRewardQuad: 3,
-  expRewardLinear: 8,
-  expRewardConstant: 10,
-  goldLinear: 11,
+  expRewardLinear: 9,
+  expRewardConstant: 12,
+  goldLinear: 12,
   goldRandom: 6,
-  goldConstant: 5,
+  goldConstant: 8,
 
   basicAttackPower: 10,
   damagePowerDivisor: 40,
@@ -87,17 +102,25 @@ export const DEFAULT_RULES: Rules = {
   guardMultiplier: 0.5,
   healDivisor: 30,
 
-  captureBase: 0.15,
+  allyDamageMult: 1.12,
+  enemyDamageMult: 0.88,
+  earlyGameLevel: 12,
+  allyEarlyDamageBonus: 0.4,
+  enemyEarlyDamageReduction: 0.35,
+  allyEarlyHealBonus: 0.5,
+  maxEnemies: 3,
+
+  captureBase: 0.2,
   captureHpScale: 0.85,
   captureSpeciesScale: 1.6,
-  captureLevelPenaltyPerLevel: 0.035,
+  captureLevelPenaltyPerLevel: 0.025,
   captureLevelPenaltyMin: 0.35,
   captureMin: 0.03,
   captureMax: 0.95,
 
-  fleeBase: 0.35,
+  fleeBase: 0.5,
   fleePerSpeed: 0.03,
-  fleeMin: 0.15,
+  fleeMin: 0.3,
   fleeMax: 0.95,
 
   poisonRatio: 0.06,

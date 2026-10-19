@@ -1437,6 +1437,19 @@ const RULE_GROUPS: {
     ]
   },
   {
+    title: '平衡與新手保護',
+    desc: '我方／敵方整體傷害倍率，以及低等級時的新手保護；野外遇敵數量另受存活隊伍人數限制。',
+    fields: [
+      { key: 'allyDamageMult', label: '我方傷害倍率', step: 0.01 },
+      { key: 'enemyDamageMult', label: '敵方傷害倍率', step: 0.01 },
+      { key: 'earlyGameLevel', label: '新手保護：生效等級上限', hint: '等級低於此值時，越接近 1 級保護越強；0 = 關閉', step: 1 },
+      { key: 'allyEarlyDamageBonus', label: '新手保護：我方傷害加成', step: 0.05 },
+      { key: 'enemyEarlyDamageReduction', label: '新手保護：我方減傷', step: 0.05 },
+      { key: 'allyEarlyHealBonus', label: '新手保護：我方治療加成', step: 0.05 },
+      { key: 'maxEnemies', label: '野外遇敵數量上限', step: 1 }
+    ]
+  },
+  {
     title: '捕獲',
     fields: [
       { key: 'captureBase', label: '基礎值', step: 0.01 },

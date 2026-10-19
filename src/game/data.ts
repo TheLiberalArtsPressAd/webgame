@@ -376,6 +376,16 @@ export const SKILLS: Record<string, SkillDef> = {
     kind: 'attack',
     target: 'enemy'
   },
+  starfall: {
+    id: 'starfall',
+    name: '星塵落',
+    desc: '灑下細碎星塵，攻擊所有敵人。消耗低，適合開場清掃成群的小型幻獸。',
+    element: 'none',
+    mp: 9,
+    power: 26,
+    kind: 'attack',
+    target: 'allEnemy'
+  },
   // 輔助
   heal: {
     id: 'heal',
@@ -1315,8 +1325,8 @@ export const SPECIES: Record<string, SpeciesDef> = {
     name: '旭',
     element: 'none',
     shape: 'human',
-    base: g(64, 26, 15, 13, 12, 13),
-    growth: g(10, 4, 2.3, 2.0, 1.9, 1.1),
+    base: g(80, 30, 18, 16, 14, 13),
+    growth: g(12, 4.2, 2.7, 2.3, 2.1, 1.2),
     catchRate: 0,
     size: 1,
     c1: '#f0c8a0',
@@ -1325,7 +1335,8 @@ export const SPECIES: Record<string, SpeciesDef> = {
     skills: [
       { level: 1, id: 'strike' },
       { level: 1, id: 'fireball' },
-      { level: 6, id: 'heal' },
+      { level: 2, id: 'starfall' },
+      { level: 5, id: 'heal' },
       { level: 8, id: 'purify' },
       { level: 10, id: 'starburst' },
       { level: 14, id: 'inferno' },
@@ -1337,8 +1348,8 @@ export const SPECIES: Record<string, SpeciesDef> = {
     name: '鈴',
     element: 'wind',
     shape: 'human',
-    base: g(50, 42, 10, 9, 18, 15),
-    growth: g(7.5, 6, 1.5, 1.4, 2.9, 1.4),
+    base: g(62, 46, 11, 12, 20, 15),
+    growth: g(9, 6, 1.6, 1.8, 3.0, 1.4),
     catchRate: 0,
     size: 1,
     c1: '#f6d2b0',
@@ -1347,6 +1358,7 @@ export const SPECIES: Record<string, SpeciesDef> = {
     skills: [
       { level: 1, id: 'windblade' },
       { level: 1, id: 'heal' },
+      { level: 3, id: 'starfall' },
       { level: 8, id: 'haste' },
       { level: 10, id: 'paralyzepalm' },
       { level: 12, id: 'cyclone' },
@@ -1359,8 +1371,8 @@ export const SPECIES: Record<string, SpeciesDef> = {
     name: '鐵山',
     element: 'earth',
     shape: 'human',
-    base: g(84, 18, 19, 20, 6, 7),
-    growth: g(13, 2.5, 2.8, 2.9, 0.8, 0.6),
+    base: g(102, 18, 22, 23, 6, 7),
+    growth: g(15, 2.5, 3.0, 3.1, 0.8, 0.6),
     catchRate: 0,
     size: 1.05,
     c1: '#d8a878',
@@ -1369,6 +1381,7 @@ export const SPECIES: Record<string, SpeciesDef> = {
     skills: [
       { level: 1, id: 'strike' },
       { level: 1, id: 'guardup' },
+      { level: 6, id: 'starfall' },
       { level: 7, id: 'rockfall' },
       { level: 13, id: 'quake' }
     ]

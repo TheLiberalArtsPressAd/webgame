@@ -16,6 +16,7 @@ import { npcDialogue, questHint, SCRIPTED_BATTLES, type BattleBg, type StoryLine
 import { session, type GameState } from '../game/session';
 import { addItem, fullRestore, giveExp, grantAchievements, MAX_PARTY } from '../game/state';
 import { createUnit, ITEMS, itemName, SPECIES } from '../game/data';
+import { RULES } from '../game/rules';
 import { questOnArrive, activeQuestSummary, ensureDailies } from '../game/quests';
 import { audio, bgmForMap } from '../engine/audio';
 import { BattleScene } from './battleScene';
@@ -587,7 +588,10 @@ export class FieldScene implements Scene {
   private startRandomBattle() {
     const enc = this.map.encounters!;
     const total = enc.table.reduce((a, b) => a + b.weight, 0);
-    const count = 1 + Math.floor(Math.random() * 3);
+    // 平衡調整：遇敵數量同時受「存活隊伍人數」與規則上限限制
+    const alive = this.s.party.filter((u) => u.hp > 0).length;
+    const cap = Math.max(1, Math.min(RULES.maxEnemies || 3, alive || 1));
+    const count = 1 + Math.floor(Math.random() * cap);
     const enemies: Unit[] = [];
     for (let i = 0; i < count; i++) {
       let roll = Math.random() * total;

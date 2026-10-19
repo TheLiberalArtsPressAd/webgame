@@ -90,7 +90,7 @@ export function slotKey(slot: number): string {
 
 export function newGame(name = '旭', slot = 1): GameState {
   const hero = createUnit('hero_asa', 1, 'hero', name);
-  const starter = createUnit('dusthare', 2, 'pet');
+  const starter = createUnit('dusthare', 3, 'pet');
   const s: GameState = {
     version: 1,
     slot,
@@ -101,9 +101,9 @@ export function newGame(name = '旭', slot = 1): GameState {
     facing: 2,
     party: [hero, starter],
     storage: [],
-    inventory: { sealstone: 5, herb: 4, manadrop: 2 },
-    gold: 250,
-    goldEarned: 250,
+    inventory: { sealstone: 6, herb: 6, manadrop: 3, antidote: 2, smoke: 1 },
+    gold: 400,
+    goldEarned: 400,
     flags: {},
     stage: 0,
     steps: 0,

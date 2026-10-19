@@ -232,14 +232,14 @@ export const MAPS: Record<string, MapDef> = {
       { x: 5, y: 0 }
     ],
     encounters: {
-      rate: 0.11,
+      rate: 0.1,
       table: [
-        { species: 'dusthare', min: 1, max: 3, weight: 30 },
-        { species: 'glimmermouse', min: 1, max: 3, weight: 25 },
-        { species: 'galehawk', min: 2, max: 4, weight: 20 },
-        { species: 'dewfrog', min: 2, max: 4, weight: 15 },
-        { species: 'mossbear', min: 3, max: 5, weight: 10 },
-        { species: 'shadowwolf', min: 3, max: 6, weight: 12 }
+        { species: 'dusthare', min: 1, max: 3, weight: 34 },
+        { species: 'glimmermouse', min: 1, max: 3, weight: 30 },
+        { species: 'dewfrog', min: 2, max: 4, weight: 22 },
+        { species: 'galehawk', min: 2, max: 3, weight: 14 },
+        { species: 'mossbear', min: 3, max: 4, weight: 6 },
+        { species: 'shadowwolf', min: 3, max: 4, weight: 6 }
       ]
     },
     npcs: [
@@ -306,14 +306,14 @@ export const MAPS: Record<string, MapDef> = {
       { x: 10, y: 15 }
     ],
     encounters: {
-      rate: 0.13,
+      rate: 0.11,
       table: [
-        { species: 'rockturtle', min: 4, max: 7, weight: 30 },
-        { species: 'magmaboar', min: 4, max: 7, weight: 25 },
-        { species: 'thunderbird', min: 4, max: 7, weight: 25 },
-        { species: 'frostdeer', min: 5, max: 8, weight: 12 },
-        { species: 'flamefox', min: 5, max: 8, weight: 8 },
-        { species: 'pebblet', min: 4, max: 7, weight: 14 }
+        { species: 'pebblet', min: 4, max: 7, weight: 22 },
+        { species: 'rockturtle', min: 4, max: 6, weight: 28 },
+        { species: 'thunderbird', min: 4, max: 6, weight: 22 },
+        { species: 'magmaboar', min: 4, max: 6, weight: 18 },
+        { species: 'frostdeer', min: 5, max: 7, weight: 12 },
+        { species: 'flamefox', min: 5, max: 7, weight: 8 }
       ]
     },
     npcs: [
@@ -369,15 +369,15 @@ export const MAPS: Record<string, MapDef> = {
       { x: 12, y: 15 }
     ],
     encounters: {
-      rate: 0.12,
+      rate: 0.11,
       table: [
-        { species: 'frostdeer', min: 7, max: 10, weight: 26 },
-        { species: 'galehawk', min: 7, max: 10, weight: 24 },
-        { species: 'magmaboar', min: 8, max: 11, weight: 20 },
-        { species: 'mossbear', min: 8, max: 11, weight: 18 },
-        { species: 'flamefox', min: 9, max: 12, weight: 12 },
-        { species: 'zephyrling', min: 7, max: 11, weight: 14 },
-        { species: 'shadowwolf', min: 9, max: 12, weight: 10 }
+        { species: 'frostdeer', min: 7, max: 10, weight: 28 },
+        { species: 'galehawk', min: 7, max: 9, weight: 24 },
+        { species: 'zephyrling', min: 7, max: 10, weight: 16 },
+        { species: 'magmaboar', min: 8, max: 10, weight: 18 },
+        { species: 'mossbear', min: 8, max: 10, weight: 16 },
+        { species: 'flamefox', min: 9, max: 11, weight: 12 },
+        { species: 'shadowwolf', min: 9, max: 11, weight: 8 }
       ]
     },
     npcs: [
